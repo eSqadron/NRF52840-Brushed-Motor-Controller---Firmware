@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Copyright (c) 2023 Maciej Baczmanski, Michal Kawiak, Jakub Mazur
+#
+
+menu "Zephyr Kernel"
+source "Kconfig.zephyr"
+endmenu
+
+menu "Brushed motor controller configuration"
+config GEARSHIFT_RATIO
+	int "Gearshift ratio of attached motor"
+	default 150
+
+config ENC_STEPS_PER_ROTATION
+	int "Number of encoder steps per one full rotation"
+	default 64
+
+config ENC_TIMER_PERIOD_MS
+	int "Sampling period for continuus speed and position calculation"
+	default 100
+
+config SPEED_MAX_MRPM
+	int "Max motor speed from motor documentation (in mili RPM - one thousands of RPM)"
+	default 67000
+endmenu
