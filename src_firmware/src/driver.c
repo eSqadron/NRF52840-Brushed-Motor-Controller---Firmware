@@ -5,16 +5,18 @@
 #include <zephyr/drivers/pwm.h>
 #include <zephyr/types.h>
 #include "driver.h"
+#include "button.h"
 
 
 struct DriverVersion driver_ver = {
-	.major = 2,
-	.minor = 0,
+	.major = 1,
+	.minor = 1,
 };
 
 /// SPEED control
 static uint32_t target_speed_mrpm;// Target set by user
 static uint32_t actual_mrpm; // actual speed calculated from encoder pins
+static uint32_t max_mrpm;// max rpm set by user in init (read from documentation)
 static uint32_t speed_control; // PID output -> pwm calculations input
 
 
@@ -55,17 +57,17 @@ static int speed_pwm_set(uint32_t value)
 		return NOT_INITIALISED;
 	}
 
-	if (value > CONFIG_SPEED_MAX_MRPM) {
+	if (value > max_mrpm) {
 		return DESIRED_SPEED_TO_HIGH;
 	}
 
-	if (target_speed_mrpm < CONFIG_SPEED_MAX_MRPM/10) {
+	if (target_speed_mrpm < max_mrpm/10) {
 		value = 0;
 		speed_control = 0;
 	}
 
 	uint64_t w_1 = pwm_motor_driver.period * (uint64_t)value;
-	uint32_t w = value != 0 ? (uint32_t)(w_1/CONFIG_SPEED_MAX_MRPM) : 0;
+	uint32_t w = value != 0 ? (uint32_t)(w_1/max_mrpm) : 0;
 
 	ret = pwm_set_pulse_dt(&pwm_motor_driver, w);
 	if (ret != 0) {
@@ -122,6 +124,7 @@ void enc_ch1_callback(const struct device *dev, struct gpio_callback *cb, uint32
 
 int init_pwm_motor_driver()
 {
+	max_mrpm = 67000u;
 	int ret;
 
 	if (!device_is_ready(pwm_motor_driver.dev)) {
@@ -170,6 +173,8 @@ int init_pwm_motor_driver()
 	}
 
 	k_timer_start(&my_timer, K_MSEC(CONFIG_ENC_TIMER_PERIOD_MS), K_MSEC(CONFIG_ENC_TIMER_PERIOD_MS));
+
+	off_on_button_init();
 
 	drv_initialised = true;
 
@@ -283,7 +288,7 @@ bool get_motor_off_on(void)
 
 uint32_t get_current_max_speed(void)
 {
-	return CONFIG_SPEED_MAX_MRPM;
+	return max_mrpm;
 }
 
 uint64_t get_cycles_count_DEBUG(void)

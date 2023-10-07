@@ -15,5 +15,4 @@
 void main(void)
 {
 	init_bt();
-	init_pwm_motor_driver();
 }

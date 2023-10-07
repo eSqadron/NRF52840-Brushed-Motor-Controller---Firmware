@@ -6,6 +6,20 @@
 #include <stdlib.h>
 #include "driver.h"
 
+static int cmd_init(const struct shell *shell, size_t argc, char *argv[])
+{
+	int ret;
+
+	ret = init_pwm_motor_driver(67000u); // TODO - change to argument
+	if (ret) {
+		shell_fprintf(shell, SHELL_ERROR, "usuccesful driver initialisation, errc: %d\n", ret);
+	} else {
+		shell_fprintf(shell, SHELL_NORMAL, "initialisation succesful!\n");
+	}
+
+	return 0;
+}
+
 static int cmd_speed(const struct shell *shell, size_t argc, char *argv[])
 {
 	int ret;
@@ -120,7 +134,8 @@ static int cmd_drv_version(const struct shell *shell, size_t argc, char *argv[])
 }
 
 
-SHELL_CMD_ARG_REGISTER(speed, NULL, "DUPAspeed in milli RPM (one thousands of RPM)\nspeed to get speed\nspeed <value> to set speed", cmd_speed, 1, 1);
+SHELL_CMD_REGISTER(init, NULL, "tttt Initialise PWM motors and GPIOs\ninit to use default values\ninit with args - TODO", cmd_init);
+SHELL_CMD_ARG_REGISTER(speed, NULL, "speed in milli RPM (one thousands of RPM)\nspeed to get speed\nspeed <value> to set speed", cmd_speed, 1, 1);
 SHELL_CMD_ARG_REGISTER(motor, NULL, "Start or stop motor\nstart <f b>\noff", cmd_off_on, 1, 2);
 SHELL_CMD_REGISTER(debug, NULL, "get debug info", cmd_debug);
 SHELL_CMD_REGISTER(drv_version, NULL, "get motor driver version", cmd_drv_version);

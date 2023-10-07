@@ -48,6 +48,7 @@ struct DriverVersion {
 };
 
 /// @brief Function initalising PWMs (drivers) and GPIOs.
+/// @param speed_max_mrpm - max speed defined in mili RPM
 /// @return error defined in error_codes
 int init_pwm_motor_driver();
 
