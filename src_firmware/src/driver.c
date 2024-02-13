@@ -129,6 +129,11 @@ void update_speed_and_position_continuus(struct k_work *work)
 			// increase or decrese speed each iteration by Kp * speed_delta
 			speed_control = (uint32_t)(speed_control + temp_modifier);
 
+			// Cap control at max rpm speed, to avoid cumulation of too high speeds.
+			if(speed_control > CONFIG_SPEED_MAX_MRPM){
+				speed_control = CONFIG_SPEED_MAX_MRPM;
+			}
+
 			ret = speed_pwm_set(speed_control);
 		} else if (control_mode == POSITION) {
 			// TODO - it is temporary version of position control - will be improved!
