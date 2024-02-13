@@ -6,4 +6,8 @@
  *
  */
 
+#if CONFIG_IS_BT_SUPPORTED==y
+
 int init_bt(void);
+
+#endif

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2023 Maciej Baczmanski, Michal Kawiak, Jakub Mazur
+#if (CONFIG_IS_UART_SHELL_SUPPORTED==y)
 
 #include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>
@@ -262,4 +263,7 @@ SHELL_CMD_REGISTER(drv_version, NULL, "get motor driver version", cmd_drv_versio
 SHELL_CMD_REGISTER(boot, NULL,
 	"Enter bootloader mode, in order to flash new software via nRF connect programmer",
 	cmd_boot);
+#endif
+
+
 #endif

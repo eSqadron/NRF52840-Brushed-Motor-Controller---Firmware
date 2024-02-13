@@ -7,7 +7,7 @@ menu "Zephyr Kernel"
 source "Kconfig.zephyr"
 endmenu
 
-menu "Wyndka configuration"
+menu "Motor controller configuration"
 config GEARSHIFT_RATIO
 	int "Gearshift ratio of attached motor"
 	default 150
@@ -27,5 +27,17 @@ config SPEED_MAX_MRPM
 config POSITION_CONTROL_MODIFIER
 	int "Accuracy of position control (if value is 10 position is controlled in deca-degrees; if 100 - centi-degrees etc.)"
 	default 10
+
+config IS_BT_SUPPORTED
+	bool "bool value, 1 if BLE is supposed to be supported, 0 if not"
+	default 0
+
+config IS_UART_SHELL_SUPPORTED
+	bool "bool value, 1 if uart shell is supposed to be supported, 0 if not"
+	default 1
+
+config SUPPORTED_CHANNEL_NUMBER
+	int "number of channels supported by the hardware"
+	default 2
 
 endmenu

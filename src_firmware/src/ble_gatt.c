@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2023 Maciej Baczmanski, Michal Kawiak, Jakub Mazur
 // Copyright (c) 2016 Intel Corporation
+#if CONFIG_IS_BT_SUPPORTED==y
 
 #include "driver.h"
 
@@ -69,3 +70,5 @@ BT_GATT_SERVICE_DEFINE(hrs_svc,
 			       BT_GATT_PERM_WRITE,
 			       NULL, write_ble, NULL),
 );
+
+#endif
