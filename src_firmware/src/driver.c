@@ -13,24 +13,28 @@ struct DriverVersion driver_ver = {
 	.minor = 1,
 };
 
+/// CONTROL MODE - whether speed or position is controlled
+static enum ControlModes control_mode = SPEED;
+
+/// encoder timer - timer is common for both channels
+struct k_timer my_timer;
+
+/// drv init ?
+static bool drv_initialised; // was init command sent?
+
+
 /// SPEED control
 static uint32_t target_speed_mrpm;// Target set by user
 static uint32_t actual_mrpm; // actual speed calculated from encoder pins
 static uint32_t speed_control; // PID output -> pwm calculations input
 
-
 /// ENCODER - variables used for actual speed calculation based on encoder pin and timer interrupts
 static uint64_t count_cycles;
 static uint64_t old_count_cycles;
 static uint64_t count_timer;
-struct k_timer my_timer;
 
-/// BOOLS - drv init and on?
-static bool drv_initialised; // was init command sent?
+/// BOOLS - is motor on?
 static bool is_motor_on; // was motor_on function called?
-
-/// CONTROL MODE - whether speed or position is controlled
-static enum ControlModes control_mode = SPEED;
 
 /// POSITION control
 static uint32_t current_position;
@@ -43,14 +47,18 @@ static const uint32_t max_position = 360u * CONFIG_POSITION_CONTROL_MODIFIER;
 /// PINS definitions
 /// motor out
 static const struct pwm_dt_spec pwm_motor_driver = PWM_DT_SPEC_GET(DT_ALIAS(pwm_drv_ch1));
-static const struct gpio_dt_spec set_dir_p1 = GPIO_DT_SPEC_GET(DT_ALIAS(set_dir_p1_ch1), gpios);
-static const struct gpio_dt_spec set_dir_p2 = GPIO_DT_SPEC_GET(DT_ALIAS(set_dir_p2_ch1), gpios);
+static const struct gpio_dt_spec set_dir_pins[2] = {
+	GPIO_DT_SPEC_GET(DT_ALIAS(set_dir_p1_ch1), gpios),
+	GPIO_DT_SPEC_GET(DT_ALIAS(set_dir_p2_ch1), gpios)
+};
 
 /// enc in
-static const struct gpio_dt_spec enc_p1_ch1 = GPIO_DT_SPEC_GET(DT_ALIAS(get_enc_p1_ch1), gpios);
-static const struct gpio_dt_spec enc_p2_ch1 = GPIO_DT_SPEC_GET(DT_ALIAS(get_enc_p2_ch1), gpios);
-static const struct gpio_dt_spec enc_ch1_pins[2] = {enc_p1_ch1, enc_p2_ch1};
+static const struct gpio_dt_spec enc_pins[2] = {
+	GPIO_DT_SPEC_GET(DT_ALIAS(get_enc_p1_ch1), gpios),
+	GPIO_DT_SPEC_GET(DT_ALIAS(get_enc_p2_ch1), gpios)
+};
 static struct gpio_callback enc_ch1_cb[2];
+
 
 #if defined(CONFIG_BOARD_NRF52840DONGLE_NRF52840)
 static const struct gpio_dt_spec out_boot = GPIO_DT_SPEC_GET(DT_ALIAS(enter_boot_p), gpios);
@@ -190,20 +198,20 @@ int init_pwm_motor_driver()
 	}
 
 
-	if (!gpio_is_ready_dt(&set_dir_p1)) {
+	if (!gpio_is_ready_dt(&(set_dir_pins[0]))) {
 		return GPIO_OUT_DIR_CNTRL_1_CHNL1_NOT_READY;
 	}
 
-	ret = gpio_pin_configure_dt(&set_dir_p1, GPIO_OUTPUT_LOW);
+	ret = gpio_pin_configure_dt(&(set_dir_pins[0]), GPIO_OUTPUT_LOW);
 	if (ret != 0) {
 		return UNABLE_TO_SET_GPIO;
 	}
 
 	// TODO - move to function
-	if (!gpio_is_ready_dt(&set_dir_p2)) {
+	if (!gpio_is_ready_dt(&(set_dir_pins[1]))) {
 		return GPIO_OUT_DIR_CNTRL_2_CHNL1_NOT_READY;
 	}
-	ret = gpio_pin_configure_dt(&set_dir_p2, GPIO_OUTPUT_LOW);
+	ret = gpio_pin_configure_dt(&(set_dir_pins[1]), GPIO_OUTPUT_LOW);
 
 
 	if (ret != 0) {
@@ -217,10 +225,10 @@ int init_pwm_motor_driver()
 #endif
 
 	for (int i = 0; i < 2; ++i) {
-		ret = gpio_pin_configure_dt(&enc_ch1_pins[i], GPIO_INPUT);
-		ret = gpio_pin_interrupt_configure_dt(&enc_ch1_pins[i], GPIO_INT_EDGE_BOTH);
-		gpio_init_callback(&enc_ch1_cb[i], enc_ch1_callback, BIT(enc_ch1_pins[i].pin));
-		gpio_add_callback(enc_ch1_pins[i].port, &enc_ch1_cb[i]);
+		ret = gpio_pin_configure_dt(&enc_pins[i], GPIO_INPUT);
+		ret = gpio_pin_interrupt_configure_dt(&enc_pins[i], GPIO_INT_EDGE_BOTH);
+		gpio_init_callback(&enc_ch1_cb[i], enc_ch1_callback, BIT(enc_pins[i].pin));
+		gpio_add_callback(enc_pins[i].port, &enc_ch1_cb[i]);
 		// TODO - ret error checking!!
 	}
 
@@ -270,20 +278,20 @@ int motor_on(enum MotorDirection direction)
 	count_cycles = 0;
 	old_count_cycles = 0;
 	if (direction == FORWARD) {
-		ret = gpio_pin_set_dt(&set_dir_p1, 1);
+		ret = gpio_pin_set_dt(&(set_dir_pins[0]), 1);
 		if (ret != 0) {
 			return UNABLE_TO_SET_GPIO;
 		}
-		ret = gpio_pin_set_dt(&set_dir_p2, 0);
+		ret = gpio_pin_set_dt(&(set_dir_pins[1]), 0);
 		if (ret != 0) {
 			return UNABLE_TO_SET_GPIO;
 		}
 	} else if (direction == BACKWARD) {
-		ret = gpio_pin_set_dt(&set_dir_p1, 0);
+		ret = gpio_pin_set_dt(&(set_dir_pins[0]), 0);
 		if (ret != 0) {
 			return UNABLE_TO_SET_GPIO;
 		}
-		ret = gpio_pin_set_dt(&set_dir_p2, 1);
+		ret = gpio_pin_set_dt(&(set_dir_pins[1]), 1);
 		if (ret != 0) {
 			return UNABLE_TO_SET_GPIO;
 		}
@@ -307,12 +315,12 @@ int motor_off(void)
 	}
 
 	if (drv_initialised) {
-		ret = gpio_pin_set_dt(&set_dir_p1, 0);
+		ret = gpio_pin_set_dt(&(set_dir_pins[0]), 0);
 
 		if (ret != 0) {
 			return UNABLE_TO_SET_GPIO;
 		}
-		ret = gpio_pin_set_dt(&set_dir_p2, 0);
+		ret = gpio_pin_set_dt(&(set_dir_pins[1]), 0);
 		if (ret != 0) {
 			return UNABLE_TO_SET_GPIO;
 		}
