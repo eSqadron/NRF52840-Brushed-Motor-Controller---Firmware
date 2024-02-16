@@ -70,19 +70,19 @@ static int cmd_off_on(const struct shell *shell, size_t argc, char *argv[])
 	int ret;
 
 	if (argc == 1) {
-		if (get_motor_off_on()) {
-			shell_fprintf(shell, SHELL_NORMAL, "Motor is turned on!\n");
+		if (get_motor_off_on(relevant_channel)) {
+			shell_fprintf(shell, SHELL_NORMAL, "Motor channel %d is turned on!\n", relevant_channel);
 
 		} else {
-			shell_fprintf(shell, SHELL_NORMAL, "Motor is turned off!\n");
+			shell_fprintf(shell, SHELL_NORMAL, "Motor channel %d is turned off!\n", relevant_channel);
 		}
 
 	} else if (argc == 2) {
 		if (strcmp(argv[1], "start") == 0) {
-			ret = motor_on(FORWARD);
+			ret = motor_on(FORWARD, relevant_channel);
 
 		} else if (strcmp(argv[1], "stop") == 0) {
-			ret = motor_off();
+			ret = motor_off(relevant_channel);
 
 		} else {
 			shell_fprintf(shell, SHELL_ERROR, "Unknown subcommand!\n");
@@ -94,7 +94,7 @@ static int cmd_off_on(const struct shell *shell, size_t argc, char *argv[])
 				"Couldn't change motor state! Error %d\n", ret);
 
 		} else {
-			shell_fprintf(shell, SHELL_NORMAL, "Operation executed!\n");
+			shell_fprintf(shell, SHELL_NORMAL, "Operation executed on channel %d!\n", relevant_channel);
 		}
 
 	} else if (argc == 3) {
@@ -102,12 +102,12 @@ static int cmd_off_on(const struct shell *shell, size_t argc, char *argv[])
 			if (strcmp(argv[2], "fwd") == 0 ||
 			    strcmp(argv[2], "forward") == 0 ||
 			    strcmp(argv[2], "f") == 0) {
-				ret = motor_on(FORWARD);
+				ret = motor_on(FORWARD, relevant_channel);
 
 			} else if (strcmp(argv[2], "bck") == 0 ||
 				   strcmp(argv[2], "backward") == 0 ||
 				   strcmp(argv[2], "b") == 0) {
-				ret = motor_on(BACKWARD);
+				ret = motor_on(BACKWARD, relevant_channel);
 
 			} else {
 				shell_fprintf(shell, SHELL_ERROR,

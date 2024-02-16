@@ -85,11 +85,11 @@ int speed_get(uint32_t *value);
 /// @brief Turn motor on in proper direction, without modyfing target speed or set pwm output.
 /// @param direction - FORWARD or BACKWARD
 /// @return error defined in error_codes
-int motor_on(enum MotorDirection direction);
+int motor_on(enum MotorDirection direction, enum ChannelNumber chnl);
 
 /// @brief Turn motor off, without modyfing pwm output
 /// @return error defined in error_codes
-int motor_off(void);
+int motor_off(enum ChannelNumber chnl);
 
 /// @brief Simple getter for max speed (set by init_pwm_motor_driver)
 /// @return max speed in mili RPM
@@ -97,7 +97,7 @@ uint32_t get_current_max_speed(void);
 
 /// @brief Simple getter for current motor state (off or on)
 /// @return true - motor is on; false - motor is off
-bool get_motor_off_on(void);
+bool get_motor_off_on(enum ChannelNumber chnl);
 
 /// @brief Simple getter for firmware software version
 /// @return DriverVersion struct of major and minor version

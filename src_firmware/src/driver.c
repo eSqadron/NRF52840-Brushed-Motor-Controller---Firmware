@@ -128,7 +128,7 @@ void update_speed_and_position_continuus(struct k_work *work)
 		 CONFIG_ENC_TIMER_PERIOD_MS);
 
 	// if motor is on, calculate control value
-	if (get_motor_off_on()) {
+	if (get_motor_off_on(CH0)) {
 		int ret;
 		if (control_mode == SPEED) {
 			int32_t speed_delta = drv_chnls[CH0].target_speed_mrpm - drv_chnls[CH0].actual_mrpm;
@@ -187,7 +187,7 @@ void enc_ch1_callback(const struct device *dev, struct gpio_callback *cb, uint32
 	drv_chnls[CH0].count_cycles += 1;
 }
 
-
+// DONE dual channel
 int init_pwm_motor_driver()
 {
 	int ret;
@@ -270,7 +270,8 @@ int speed_get(uint32_t *value)
 	return NOT_INITIALISED;
 }
 
-int motor_on(enum MotorDirection direction)
+// DONE dual channel
+int motor_on(enum MotorDirection direction, enum ChannelNumber chnl)
 {
 	int ret;
 
@@ -278,39 +279,40 @@ int motor_on(enum MotorDirection direction)
 		return NOT_INITIALISED;
 	}
 
-	if (drv_chnls[CH0].is_motor_on) {
+	if (drv_chnls[chnl].is_motor_on) {
 		// Motor is already on, no need for starting it again
 		return SUCCESS;
 	}
 
-	drv_chnls[CH0].speed_control = 0;
-	drv_chnls[CH0].count_cycles = 0;
-	drv_chnls[CH0].old_count_cycles = 0;
+	drv_chnls[chnl].speed_control = 0;
+	drv_chnls[chnl].count_cycles = 0;
+	drv_chnls[chnl].old_count_cycles = 0;
 	if (direction == FORWARD) {
-		ret = gpio_pin_set_dt(&(drv_chnls[CH0].set_dir_pins[0]), 1);
+		ret = gpio_pin_set_dt(&(drv_chnls[chnl].set_dir_pins[0]), 1);
 		if (ret != 0) {
 			return UNABLE_TO_SET_GPIO;
 		}
-		ret = gpio_pin_set_dt(&(drv_chnls[CH0].set_dir_pins[1]), 0);
+		ret = gpio_pin_set_dt(&(drv_chnls[chnl].set_dir_pins[1]), 0);
 		if (ret != 0) {
 			return UNABLE_TO_SET_GPIO;
 		}
 	} else if (direction == BACKWARD) {
-		ret = gpio_pin_set_dt(&(drv_chnls[CH0].set_dir_pins[0]), 0);
+		ret = gpio_pin_set_dt(&(drv_chnls[chnl].set_dir_pins[0]), 0);
 		if (ret != 0) {
 			return UNABLE_TO_SET_GPIO;
 		}
-		ret = gpio_pin_set_dt(&(drv_chnls[CH0].set_dir_pins[1]), 1);
+		ret = gpio_pin_set_dt(&(drv_chnls[chnl].set_dir_pins[1]), 1);
 		if (ret != 0) {
 			return UNABLE_TO_SET_GPIO;
 		}
 	}
 
-	drv_chnls[CH0].is_motor_on = true;
+	drv_chnls[chnl].is_motor_on = true;
 	return SUCCESS;
 }
 
-int motor_off(void)
+// DONE dual channel
+int motor_off(enum ChannelNumber chnl)
 {
 	int ret;
 
@@ -318,22 +320,22 @@ int motor_off(void)
 		return NOT_INITIALISED;
 	}
 
-	if (!drv_chnls[CH0].is_motor_on) {
+	if (!drv_chnls[chnl].is_motor_on) {
 		// Motor is already off, no need for stopping it again
 		return SUCCESS;
 	}
 
 	if (drv_initialised) {
-		ret = gpio_pin_set_dt(&(drv_chnls[CH0].set_dir_pins[P0]), 0);
+		ret = gpio_pin_set_dt(&(drv_chnls[chnl].set_dir_pins[P0]), 0);
 
 		if (ret != 0) {
 			return UNABLE_TO_SET_GPIO;
 		}
-		ret = gpio_pin_set_dt(&(drv_chnls[CH0].set_dir_pins[P1]), 0);
+		ret = gpio_pin_set_dt(&(drv_chnls[chnl].set_dir_pins[P1]), 0);
 		if (ret != 0) {
 			return UNABLE_TO_SET_GPIO;
 		}
-		drv_chnls[CH0].is_motor_on = false;
+		drv_chnls[chnl].is_motor_on = false;
 		return SUCCESS;
 	}
 
@@ -352,9 +354,10 @@ void enter_boot(void)
 }
 #endif
 
-bool get_motor_off_on(void)
+// DONE dual channel
+bool get_motor_off_on(enum ChannelNumber chnl)
 {
-	return drv_chnls[CH0].is_motor_on;
+	return drv_chnls[chnl].is_motor_on;
 }
 
 uint32_t get_current_max_speed(void)
@@ -386,6 +389,7 @@ int position_get(uint32_t *value)
 	return SUCCESS;
 }
 
+// Mode is channel-independant
 int mode_set(enum ControlModes new_mode)
 {
 	if (!drv_initialised) {
