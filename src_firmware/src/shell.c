@@ -25,7 +25,7 @@ static int cmd_speed(const struct shell *shell, size_t argc, char *argv[])
 	uint32_t speed_mrpm;
 
 	if (argc == 1) {
-		ret = speed_get(&speed_mrpm);
+		ret = speed_get(relevant_channel, &speed_mrpm);
 		if (ret == SUCCESS) {
 			shell_fprintf(shell, SHELL_NORMAL, "speed: %d\n", speed_mrpm);
 
@@ -40,7 +40,7 @@ static int cmd_speed(const struct shell *shell, size_t argc, char *argv[])
 		return 0;
 	} else if (argc == 2) {
 		speed_mrpm = (uint32_t)strtol(argv[1], NULL, 10);
-		ret = target_speed_set(speed_mrpm);
+		ret = target_speed_set(speed_mrpm, relevant_channel);
 
 		if (ret == SUCCESS) {
 			shell_fprintf(shell, SHELL_NORMAL, "speed set to: %d\n", speed_mrpm);

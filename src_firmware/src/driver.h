@@ -62,10 +62,13 @@ enum ChannelNumber {
     CH1
 };
 
+// TODO add preprocessor check for max supported channels (currently only CH0 and CH1)
+
 enum PinNumber {
     P0,
     P1
 };
+
 
 /// @brief Function initalising PWMs (drivers) and GPIOs.
 /// @param speed_max_mrpm - max speed defined in mili RPM
@@ -75,12 +78,12 @@ int init_pwm_motor_driver();
 /// @brief Set new desired (targeted) speed AND set the pwm
 /// @param value - value in mili RPM
 /// @return error defined in error_codes
-int target_speed_set(uint32_t value);
+int target_speed_set(uint32_t value, enum ChannelNumber chnl);
 
 /// @brief Get current actual speed (from encoders)  - TODO - implement with encoders
 /// @param value - variable to save speed
 /// @return error defined in error_codes
-int speed_get(uint32_t *value);
+int speed_get(enum ChannelNumber chnl, uint32_t *value);
 
 /// @brief Turn motor on in proper direction, without modyfing target speed or set pwm output.
 /// @param direction - FORWARD or BACKWARD

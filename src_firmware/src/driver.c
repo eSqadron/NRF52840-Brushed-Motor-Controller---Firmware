@@ -8,6 +8,11 @@
 #include "driver.h"
 
 
+// declarations of internal functions
+void enc_callback_ch0(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
+void enc_callback_ch1(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
+
+
 struct DriverVersion driver_ver = {
 	.major = 1,
 	.minor = 1,
@@ -20,8 +25,8 @@ static enum ControlModes control_mode = SPEED;
 struct k_timer my_timer;
 uint64_t count_timer;
 
-/// drv init ?
-static bool drv_initialised; // was init command sent?
+/// driver initalised (Was init function called)?
+static bool drv_initialised;
 
 struct DriverChannel{
 	/// SPEED control
@@ -52,6 +57,8 @@ struct DriverChannel{
 	/// enc in
 	const struct gpio_dt_spec enc_pins[2];
 	struct gpio_callback enc_cb[2];
+
+	void (*enc_callback_ptr)(const struct device*, struct gpio_callback*, uint32_t);
 };
 
 static struct DriverChannel drv_chnls[CONFIG_SUPPORTED_CHANNEL_NUMBER] = {
@@ -61,7 +68,8 @@ static struct DriverChannel drv_chnls[CONFIG_SUPPORTED_CHANNEL_NUMBER] = {
 		.set_dir_pins[P0] = GPIO_DT_SPEC_GET(DT_ALIAS(set_dir_p1_ch1), gpios),
 		.set_dir_pins[P1] = GPIO_DT_SPEC_GET(DT_ALIAS(set_dir_p2_ch1), gpios),
 		.enc_pins[P0] = GPIO_DT_SPEC_GET(DT_ALIAS(get_enc_p1_ch1), gpios),
-		.enc_pins[P1] = GPIO_DT_SPEC_GET(DT_ALIAS(get_enc_p2_ch1), gpios)
+		.enc_pins[P1] = GPIO_DT_SPEC_GET(DT_ALIAS(get_enc_p2_ch1), gpios),
+		.enc_callback_ptr = &enc_callback_ch0 // TODO - turn all callbacks to one function!
 	}
 };
 
@@ -101,74 +109,80 @@ static int speed_pwm_set(uint32_t value)
 
 void update_speed_and_position_continuus(struct k_work *work)
 {
-	count_timer += 1; // debug only
-	uint64_t diff = 0;
+	for(unsigned int chnl = 0; chnl<CONFIG_SUPPORTED_CHANNEL_NUMBER; ++chnl){
+		count_timer += 1; // debug only
 
-	// count encoder interrupts
-	if (drv_chnls[CH0].count_cycles > drv_chnls[CH0].old_count_cycles) {
-		diff = drv_chnls[CH0].count_cycles - drv_chnls[CH0].old_count_cycles;
-	}
-	drv_chnls[CH0].old_count_cycles = drv_chnls[CH0].count_cycles;
+		// TODO - move declarations to global scope for efficiency purpouse
 
-	// calculate actual position
-	int32_t position_difference = (diff*drv_chnls[CH0].max_position)/
-								(CONFIG_ENC_STEPS_PER_ROTATION * CONFIG_GEARSHIFT_RATIO);
-	int32_t new_position = (int32_t)drv_chnls[CH0].current_position + position_difference;
+		uint64_t diff = 0;
 
-	if (new_position <= 0) {
-		drv_chnls[CH0].current_position = (uint32_t)(drv_chnls[CH0].max_position + new_position);
-	} else {
-		drv_chnls[CH0].current_position = ((uint32_t)new_position)%drv_chnls[CH0].max_position;
-	}
+		// count encoder interrupts between timer interrupts:
+		if (drv_chnls[chnl].count_cycles > drv_chnls[chnl].old_count_cycles) {
+			diff = drv_chnls[chnl].count_cycles - drv_chnls[chnl].old_count_cycles;
+		}
+		drv_chnls[chnl].old_count_cycles = drv_chnls[chnl].count_cycles;
 
-	// calculate actual speed
-	drv_chnls[CH0].actual_mrpm = RPM_TO_MRPM * MIN_TO_MS * diff /
-		(CONFIG_ENC_STEPS_PER_ROTATION *
-		 CONFIG_GEARSHIFT_RATIO *
-		 CONFIG_ENC_TIMER_PERIOD_MS);
+		// calculate actual position
+		int32_t position_difference = (diff*drv_chnls[chnl].max_position)/
+									(CONFIG_ENC_STEPS_PER_ROTATION * CONFIG_GEARSHIFT_RATIO);
+		int32_t new_position = (int32_t)drv_chnls[CH0].current_position + position_difference;
 
-	// if motor is on, calculate control value
-	if (get_motor_off_on(CH0)) {
-		int ret;
-		if (control_mode == SPEED) {
-			int32_t speed_delta = drv_chnls[CH0].target_speed_mrpm - drv_chnls[CH0].actual_mrpm;
+		if (new_position <= 0) {
+			drv_chnls[chnl].current_position = (uint32_t)(drv_chnls[chnl].max_position + new_position);
+		} else {
+			drv_chnls[chnl].current_position = ((uint32_t)new_position)%(drv_chnls[chnl].max_position);
+		}
 
-			int8_t Kp_numerator = 4;
-			int8_t Kp_denominator = 10;
+		// calculate actual speed
+		drv_chnls[chnl].actual_mrpm = RPM_TO_MRPM * MIN_TO_MS * diff /
+			(CONFIG_ENC_STEPS_PER_ROTATION *
+			CONFIG_GEARSHIFT_RATIO *
+			CONFIG_ENC_TIMER_PERIOD_MS);
 
-			int64_t temp_modifier_num = Kp_numerator*speed_delta;
-			int32_t temp_modifier = (int32_t)(temp_modifier_num/Kp_denominator);
+		// if motor is on, calculate control value
+		if (get_motor_off_on(chnl)) {
+			int ret;
+			if (control_mode == SPEED) {
+				int32_t speed_delta = drv_chnls[chnl].target_speed_mrpm - drv_chnls[chnl].actual_mrpm;
 
-			// increase or decrese speed each iteration by Kp * speed_delta
-			drv_chnls[CH0].speed_control = (uint32_t)(drv_chnls[CH0].speed_control + temp_modifier);
+				// TODO - move pid definitions to kConfig
+				int8_t Kp_numerator = 4;
+				int8_t Kp_denominator = 10;
 
-			// Cap control at max rpm speed, to avoid cumulation of too high speeds.
-			if(drv_chnls[CH0].speed_control > CONFIG_SPEED_MAX_MRPM){
-				drv_chnls[CH0].speed_control = CONFIG_SPEED_MAX_MRPM;
+				int64_t temp_modifier_num = Kp_numerator*speed_delta;
+				int32_t temp_modifier = (int32_t)(temp_modifier_num/Kp_denominator);
+
+				// increase or decrese speed each iteration by Kp * speed_delta
+				drv_chnls[chnl].speed_control = (uint32_t)(drv_chnls[chnl].speed_control + temp_modifier);
+
+				// Cap control at max rpm speed, to avoid cumulation of too high speeds.
+				if(drv_chnls[chnl].speed_control > CONFIG_SPEED_MAX_MRPM){
+					drv_chnls[chnl].speed_control = CONFIG_SPEED_MAX_MRPM;
+				}
+
+				ret = speed_pwm_set(drv_chnls[chnl].speed_control);
+			} else if (control_mode == POSITION) {
+				// TODO - it is temporary version of position control - will be improved!
+				// TODO - control it in BOTH direction, currently it goes only forward
+				drv_chnls[chnl].position_delta = drv_chnls[chnl].target_position - drv_chnls[chnl].current_position;
+
+				if (drv_chnls[chnl].position_delta < 0) {
+					drv_chnls[chnl].position_delta = -drv_chnls[chnl].position_delta;
+				}
+
+				if (drv_chnls[chnl].position_delta > drv_chnls[CH0].max_position/(36)) {
+					//36 - control precision, TODO - possibly decrease the value?
+					drv_chnls[chnl].target_speed_mrpm = CONFIG_SPEED_MAX_MRPM/3;
+					/*
+					* CONFIG_SPEED_MAX_MRPM/3 is temporary,
+					* TODO - make this value dependent on position_delta,
+					* further the target, move faster
+					*/
+				} else {
+					drv_chnls[chnl].target_speed_mrpm = 0;
+				}
+				ret_debug = speed_pwm_set(drv_chnls[chnl].target_speed_mrpm);
 			}
-
-			ret = speed_pwm_set(drv_chnls[CH0].speed_control);
-		} else if (control_mode == POSITION) {
-			// TODO - it is temporary version of position control - will be improved!
-			// TODO - control it in BOTH direction, currently it goes only forward
-			drv_chnls[CH0].position_delta = drv_chnls[CH0].target_position - drv_chnls[CH0].current_position;
-
-			if (drv_chnls[CH0].position_delta < 0) {
-				drv_chnls[CH0].position_delta = -drv_chnls[CH0].position_delta;
-			}
-
-			if (drv_chnls[CH0].position_delta > drv_chnls[CH0].max_position/(36)) {
-				//36 - control precision, TODO - possibly decrease the value?
-				drv_chnls[CH0].target_speed_mrpm = CONFIG_SPEED_MAX_MRPM/3;
-				/*
-				 * CONFIG_SPEED_MAX_MRPM/3 is temporary,
-				 * TODO - make this value dependent on position_delta,
-				 * further the target, move faster
-				 */
-			} else {
-				drv_chnls[CH0].target_speed_mrpm = 0;
-			}
-			ret_debug = speed_pwm_set(drv_chnls[CH0].target_speed_mrpm);
 		}
 	}
 }
@@ -182,10 +196,20 @@ void my_timer_handler(struct k_timer *dummy)
 
 K_TIMER_DEFINE(my_timer, my_timer_handler, NULL);
 
-void enc_ch1_callback(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
-{
-	drv_chnls[CH0].count_cycles += 1;
+void enc_callback(enum ChannelNumber chnl){
+	drv_chnls[chnl].count_cycles += 1;
 }
+
+// TODO - turn all encoder callbacks to one function!
+void enc_callback_ch0(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
+{
+	enc_callback(CH0);
+}
+void enc_callback_ch1(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
+{
+	enc_callback(CH1);
+}
+
 
 // DONE dual channel
 int init_pwm_motor_driver()
@@ -234,7 +258,7 @@ int init_pwm_motor_driver()
 		for (int i = 0; i < 2; ++i) {
 			ret = gpio_pin_configure_dt(&(drv_chnls[channel].enc_pins[i]), GPIO_INPUT);
 			ret = gpio_pin_interrupt_configure_dt(&(drv_chnls[channel].enc_pins[i]), GPIO_INT_EDGE_BOTH);
-			gpio_init_callback(&(drv_chnls[channel].enc_cb[i]), enc_ch1_callback, BIT(drv_chnls[channel].enc_pins[i].pin));
+			gpio_init_callback(&(drv_chnls[channel].enc_cb[i]), *(drv_chnls[channel].enc_callback_ptr), BIT(drv_chnls[channel].enc_pins[i].pin));
 			gpio_add_callback(drv_chnls[channel].enc_pins[i].port, &(drv_chnls[channel].enc_cb[i]));
 			// TODO - ret error checking!!
 		}
@@ -249,21 +273,21 @@ int init_pwm_motor_driver()
 	return SUCCESS;
 }
 
-int target_speed_set(uint32_t value)
+int target_speed_set(uint32_t value, enum ChannelNumber chnl)
 {
 	if (control_mode != SPEED) {
 		return UNSUPPORTED_FUNCTION_IN_CURRENT_MODE;
 	}
-	drv_chnls[CH0].target_speed_mrpm = value;
-	drv_chnls[CH0].count_cycles = 0;
-	drv_chnls[CH0].old_count_cycles = 0;
+	drv_chnls[chnl].target_speed_mrpm = value;
+	drv_chnls[chnl].count_cycles = 0;
+	drv_chnls[chnl].old_count_cycles = 0;
 	return SUCCESS;
 }
 
-int speed_get(uint32_t *value)
+int speed_get(enum ChannelNumber chnl, uint32_t *value)
 {
 	if (drv_initialised) {
-		*value = drv_chnls[CH0].actual_mrpm; // TODO - get speed from encoder
+		*value = drv_chnls[chnl].actual_mrpm; // TODO - get speed from encoder
 		return SUCCESS;
 	}
 
