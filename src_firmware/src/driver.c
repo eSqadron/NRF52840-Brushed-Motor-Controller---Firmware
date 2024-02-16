@@ -13,16 +13,6 @@ struct DriverVersion driver_ver = {
 	.minor = 1,
 };
 
-enum ChannelNumber {
-    CH0,
-    CH1
-};
-
-enum PinNumber {
-    P0,
-    P1
-};
-
 /// CONTROL MODE - whether speed or position is controlled
 static enum ControlModes control_mode = SPEED;
 

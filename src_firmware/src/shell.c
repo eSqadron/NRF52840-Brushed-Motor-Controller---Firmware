@@ -7,6 +7,18 @@
 #include <stdlib.h>
 #include "driver.h"
 
+enum ChannelNumber relevant_channel = CH0;
+
+static int cmd_channel(const struct shell *shell, size_t argc, char *argv[]){
+    if(argc == 1){
+        shell_fprintf(shell, SHELL_NORMAL, "relevant channel: %d\n", relevant_channel);
+    } else if(argc == 2){
+        relevant_channel = (enum ChannelNumber)strtol(argv[1], NULL, 10);
+        shell_fprintf(shell, SHELL_NORMAL, "channel set to: %d\n", relevant_channel);
+    }
+    return 0;
+}
+
 static int cmd_speed(const struct shell *shell, size_t argc, char *argv[])
 {
 	int ret;
@@ -247,6 +259,8 @@ static int cmd_drv_version(const struct shell *shell, size_t argc, char *argv[])
 		      "Software version: %d.%d\n", tmp_ver.major, tmp_ver.minor);
 	return 0;
 }
+
+SHELL_CMD_ARG_REGISTER(channel, NULL, "Get/set current relevant channel", cmd_channel, 1, 1);
 
 SHELL_CMD_ARG_REGISTER(speed, NULL,
 	"speed in milli RPM (one thousands of RPM)\nspeed to get speed\n speed <val> to set speed",

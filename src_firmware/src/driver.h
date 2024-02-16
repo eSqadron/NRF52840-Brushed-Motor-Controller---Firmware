@@ -57,6 +57,16 @@ struct DriverVersion {
 	uint8_t minor;
 };
 
+enum ChannelNumber {
+    CH0,
+    CH1
+};
+
+enum PinNumber {
+    P0,
+    P1
+};
+
 /// @brief Function initalising PWMs (drivers) and GPIOs.
 /// @param speed_max_mrpm - max speed defined in mili RPM
 /// @return error defined in error_codes
