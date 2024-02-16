@@ -137,7 +137,7 @@ static int cmd_position(const struct shell *shell, size_t argc, char *argv[])
 	uint32_t position;
 
 	if (argc == 1) {
-		ret = position_get(&position);
+		ret = position_get(&position, relevant_channel);
 		if (ret == SUCCESS) {
 			shell_fprintf(shell, SHELL_NORMAL, "Position: %d\n", position);
 
@@ -152,7 +152,7 @@ static int cmd_position(const struct shell *shell, size_t argc, char *argv[])
 		return 0;
 	} else if (argc == 2) {
 		position = (uint32_t)strtol(argv[1], NULL, 10);
-		ret = target_position_set(position);
+		ret = target_position_set(position, relevant_channel);
 		if (ret == SUCCESS) {
 			shell_fprintf(shell, SHELL_NORMAL, "Position set to: %d\n", position);
 

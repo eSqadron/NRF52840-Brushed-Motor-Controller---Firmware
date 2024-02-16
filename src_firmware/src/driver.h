@@ -5,9 +5,10 @@
 
 #include <zephyr/kernel.h>
 
-#define MIN_TO_MS 60000
+#define MIN_TO_MS 60000 // TODO - move to .c file?
 #define RPM_TO_MRPM 1000
 
+//TODO - rename error codes to remove "CH_1"
 /// @brief Error code definitions for motor driver
 enum error_codes {
 	SUCCESS = 0,
@@ -122,9 +123,9 @@ int get_control_mode_from_string(char *str_control_mode, enum ControlModes *ret_
 /// @return error defined in error_codes
 int get_control_mode_as_string(enum ControlModes control_mode, char **ret_value);
 
-int target_position_set(uint32_t new_target_position);
+int target_position_set(uint32_t new_target_position, enum ChannelNumber chnl);
 
-int position_get(uint32_t *value);
+int position_get(uint32_t *value, enum ChannelNumber chnl);
 
 int mode_set(enum ControlModes new_mode);
 

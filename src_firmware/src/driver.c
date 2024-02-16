@@ -21,6 +21,7 @@ struct DriverVersion driver_ver = {
 /// CONTROL MODE - whether speed or position is controlled
 static enum ControlModes control_mode = SPEED;
 
+// TODO - rename my_timer
 /// encoder timer - timer is common for both channels
 struct k_timer my_timer;
 uint64_t count_timer;
@@ -389,7 +390,7 @@ uint32_t get_current_max_speed(void)
 	return CONFIG_SPEED_MAX_MRPM;
 }
 
-int target_position_set(uint32_t new_target_position)
+int target_position_set(uint32_t new_target_position, enum ChannelNumber chnl)
 {
 	if (!drv_initialised) {
 		return NOT_INITIALISED;
@@ -399,17 +400,17 @@ int target_position_set(uint32_t new_target_position)
 		return UNSUPPORTED_FUNCTION_IN_CURRENT_MODE;
 	}
 
-	drv_chnls[CH0].target_position = new_target_position;
+	drv_chnls[chnl].target_position = new_target_position;
 	return SUCCESS;
 }
 
-int position_get(uint32_t *value)
+int position_get(uint32_t *value, enum ChannelNumber chnl)
 {
 	if (!drv_initialised) {
 		return NOT_INITIALISED;
 	}
 
-	*value = drv_chnls[CH0].current_position;
+	*value = drv_chnls[chnl].current_position;
 	return SUCCESS;
 }
 
