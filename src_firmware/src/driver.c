@@ -201,7 +201,7 @@ int init_pwm_motor_driver()
 	for(unsigned int channel = 0; channel < CONFIG_SUPPORTED_CHANNEL_NUMBER; channel++){
 
 		if (!device_is_ready(drv_chnls[channel].pwm_motor_driver.dev)) {
-			return PWM_DRV_CHNL1_NOT_READY;
+			return PWM_DRV_NOT_READY;
 		}
 
 		ret = pwm_set_pulse_dt(&(drv_chnls[channel].pwm_motor_driver), 0);
@@ -212,7 +212,7 @@ int init_pwm_motor_driver()
 
 
 		if (!gpio_is_ready_dt(&(drv_chnls[channel].set_dir_pins[P0]))) {
-			return GPIO_OUT_DIR_CNTRL_1_CHNL1_NOT_READY;
+			return GPIO_OUT_DIR_CNTRL_NOT_READY;
 		}
 
 		ret = gpio_pin_configure_dt(&(drv_chnls[channel].set_dir_pins[P0]), GPIO_OUTPUT_LOW);
@@ -222,7 +222,7 @@ int init_pwm_motor_driver()
 
 		// TODO - move to function
 		if (!gpio_is_ready_dt(&(drv_chnls[channel].set_dir_pins[P1]))) {
-			return GPIO_OUT_DIR_CNTRL_2_CHNL1_NOT_READY;
+			return GPIO_OUT_DIR_CNTRL_NOT_READY;
 		}
 		ret = gpio_pin_configure_dt(&(drv_chnls[channel].set_dir_pins[P1]), GPIO_OUTPUT_LOW);
 
