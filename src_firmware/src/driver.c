@@ -7,28 +7,35 @@
 #include <string.h>
 #include "driver.h"
 
-
-// declarations of internal functions
-void enc_callback_ch0(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
-void enc_callback_ch1(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
-
-
 struct DriverVersion driver_ver = {
 	.major = 1,
 	.minor = 1,
 };
 
+/// temporary debug only variables: - To be deleted after developemnt is finished!
+uint64_t count_timer;
+static int32_t ret_debug = 100;// DEBUG ONLY
+
+#pragma region InternalFunctions// declarations of internal functions
+// They shouldn't be moved to .h file, their scope is only for .c file
+void enc_callback_ch0(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
+void enc_callback_ch1(const struct device *dev, struct gpio_callback *cb, uint32_t pins);
+static int speed_pwm_set(uint32_t value);
+void update_speed_and_position_continuus(struct k_work *work);
+void continuus_calculation_timer_handler(struct k_timer *dummy);
+void enc_callback(enum ChannelNumber chnl);
+int get_control_mode_from_string(char *str_control_mode, enum ControlModes *ret_value);
+int get_control_mode_as_string(enum ControlModes control_mode, char **ret_value);
+#pragma endregion InternalFunctions
+
 /// CONTROL MODE - whether speed or position is controlled
 static enum ControlModes control_mode = SPEED;
-
-// TODO - rename my_timer
 /// encoder timer - timer is common for both channels
 struct k_timer continuus_calculation_timer;
-uint64_t count_timer;
-
 /// driver initalised (Was init function called)?
 static bool drv_initialised;
 
+// Struct representing singular channel, including channel - dependant variables
 struct DriverChannel{
 	/// SPEED control
 	uint32_t target_speed_mrpm;// Target set by user
@@ -61,7 +68,6 @@ struct DriverChannel{
 
 	void (*enc_callback_ptr)(const struct device*, struct gpio_callback*, uint32_t);
 };
-
 static struct DriverChannel drv_chnls[CONFIG_SUPPORTED_CHANNEL_NUMBER] = {
 	{
 		.max_position = 360u * CONFIG_POSITION_CONTROL_MODIFIER,
@@ -74,40 +80,16 @@ static struct DriverChannel drv_chnls[CONFIG_SUPPORTED_CHANNEL_NUMBER] = {
 	}
 };
 
-#if defined(CONFIG_BOARD_NRF52840DONGLE_NRF52840)
+#if defined(CONFIG_BOARD_NRF52840DONGLE_NRF52840) // BOOT functionality
 static const struct gpio_dt_spec out_boot = GPIO_DT_SPEC_GET(DT_ALIAS(enter_boot_p), gpios);
+void enter_boot(void)
+{
+	gpio_pin_configure_dt(&out_boot, GPIO_OUTPUT);
+}
 #endif
 
-static int32_t ret_debug = 100;// DEBUG ONLY
-
-static int speed_pwm_set(uint32_t value)
-{
-	int ret;
-
-	if (!drv_initialised) {
-		return NOT_INITIALISED;
-	}
-
-	if (value > CONFIG_SPEED_MAX_MRPM) {
-		return DESIRED_VALUE_TO_HIGH;
-	}
-
-	if (drv_chnls[CH0].target_speed_mrpm < CONFIG_SPEED_MAX_MRPM/10) {
-		value = 0;
-		drv_chnls[CH0].speed_control = 0;
-	}
-
-	uint64_t w_1 = drv_chnls[CH0].pwm_motor_driver.period * (uint64_t)value;
-	uint32_t w = value != 0 ? (uint32_t)(w_1/CONFIG_SPEED_MAX_MRPM) : 0;
-
-	ret = pwm_set_pulse_dt(&(drv_chnls[CH0].pwm_motor_driver), w);
-	if (ret != 0) {
-		return UNABLE_TO_SET_PWM_CHNL1;
-	}
-
-	return SUCCESS;
-}
-
+// function implementations:
+#pragma region TimerWorkCallback // timer interrupt internal functions
 void update_speed_and_position_continuus(struct k_work *work)
 {
 	for(unsigned int chnl = 0; chnl<CONFIG_SUPPORTED_CHANNEL_NUMBER; ++chnl){
@@ -187,21 +169,20 @@ void update_speed_and_position_continuus(struct k_work *work)
 		}
 	}
 }
-
 K_WORK_DEFINE(speed_and_position_update_work, update_speed_and_position_continuus);
-
 void continuus_calculation_timer_handler(struct k_timer *dummy)
 {
 	k_work_submit(&speed_and_position_update_work);
 }
-
 K_TIMER_DEFINE(continuus_calculation_timer, continuus_calculation_timer_handler, NULL);
+#pragma endregion TimerWorkCallback
 
-void enc_callback(enum ChannelNumber chnl){
-	drv_chnls[chnl].count_cycles += 1;
-}
 
 // TODO - turn all encoder callbacks to one function!
+// encoder functions
+void enc_callback(enum ChannelNumber chnl){
+	drv_chnls[chnl].count_cycles += 1;// TODO - add directionality calculation
+}
 void enc_callback_ch0(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {
 	enc_callback(CH0);
@@ -212,7 +193,7 @@ void enc_callback_ch1(const struct device *dev, struct gpio_callback *cb, uint32
 }
 
 
-// DONE dual channel
+// init motor
 int init_pwm_motor_driver()
 {
 	int ret;
@@ -274,28 +255,7 @@ int init_pwm_motor_driver()
 	return SUCCESS;
 }
 
-int target_speed_set(uint32_t value, enum ChannelNumber chnl)
-{
-	if (control_mode != SPEED) {
-		return UNSUPPORTED_FUNCTION_IN_CURRENT_MODE;
-	}
-	drv_chnls[chnl].target_speed_mrpm = value;
-	drv_chnls[chnl].count_cycles = 0;
-	drv_chnls[chnl].old_count_cycles = 0;
-	return SUCCESS;
-}
-
-int speed_get(enum ChannelNumber chnl, uint32_t *value)
-{
-	if (drv_initialised) {
-		*value = drv_chnls[chnl].actual_mrpm; // TODO - get speed from encoder
-		return SUCCESS;
-	}
-
-	return NOT_INITIALISED;
-}
-
-// DONE dual channel
+// Motor off/on functions
 int motor_on(enum MotorDirection direction, enum ChannelNumber chnl)
 {
 	int ret;
@@ -335,8 +295,6 @@ int motor_on(enum MotorDirection direction, enum ChannelNumber chnl)
 	drv_chnls[chnl].is_motor_on = true;
 	return SUCCESS;
 }
-
-// DONE dual channel
 int motor_off(enum ChannelNumber chnl)
 {
 	int ret;
@@ -366,30 +324,68 @@ int motor_off(enum ChannelNumber chnl)
 
 	return NOT_INITIALISED;
 }
-
-uint32_t speed_target_get(void)
-{
-	return drv_chnls[CH0].target_speed_mrpm;
-}
-
-#if defined(CONFIG_BOARD_NRF52840DONGLE_NRF52840)
-void enter_boot(void)
-{
-	gpio_pin_configure_dt(&out_boot, GPIO_OUTPUT);
-}
-#endif
-
-// DONE dual channel
 bool get_motor_off_on(enum ChannelNumber chnl)
 {
 	return drv_chnls[chnl].is_motor_on;
 }
 
+// Speed control functions
+static int speed_pwm_set(uint32_t value)
+{
+	int ret;
+
+	if (!drv_initialised) {
+		return NOT_INITIALISED;
+	}
+
+	if (value > CONFIG_SPEED_MAX_MRPM) {
+		return DESIRED_VALUE_TO_HIGH;
+	}
+
+	if (drv_chnls[CH0].target_speed_mrpm < CONFIG_SPEED_MAX_MRPM/10) {
+		value = 0;
+		drv_chnls[CH0].speed_control = 0;
+	}
+
+	uint64_t w_1 = drv_chnls[CH0].pwm_motor_driver.period * (uint64_t)value;
+	uint32_t w = value != 0 ? (uint32_t)(w_1/CONFIG_SPEED_MAX_MRPM) : 0;
+
+	ret = pwm_set_pulse_dt(&(drv_chnls[CH0].pwm_motor_driver), w);
+	if (ret != 0) {
+		return UNABLE_TO_SET_PWM_CHNL1;
+	}
+
+	return SUCCESS;
+}
+int target_speed_set(uint32_t value, enum ChannelNumber chnl)
+{
+	if (control_mode != SPEED) {
+		return UNSUPPORTED_FUNCTION_IN_CURRENT_MODE;
+	}
+	drv_chnls[chnl].target_speed_mrpm = value;
+	drv_chnls[chnl].count_cycles = 0;
+	drv_chnls[chnl].old_count_cycles = 0;
+	return SUCCESS;
+}
+int speed_get(enum ChannelNumber chnl, uint32_t *value)
+{
+	if (drv_initialised) {
+		*value = drv_chnls[chnl].actual_mrpm; // TODO - get speed from encoder
+		return SUCCESS;
+	}
+
+	return NOT_INITIALISED;
+}
+uint32_t speed_target_get(void)
+{
+	return drv_chnls[CH0].target_speed_mrpm;
+}
 uint32_t get_current_max_speed(void)
 {
 	return CONFIG_SPEED_MAX_MRPM;
 }
 
+// position control functions
 int target_position_set(uint32_t new_target_position, enum ChannelNumber chnl)
 {
 	if (!drv_initialised) {
@@ -403,7 +399,6 @@ int target_position_set(uint32_t new_target_position, enum ChannelNumber chnl)
 	drv_chnls[chnl].target_position = new_target_position;
 	return SUCCESS;
 }
-
 int position_get(uint32_t *value, enum ChannelNumber chnl)
 {
 	if (!drv_initialised) {
@@ -424,7 +419,6 @@ int mode_set(enum ControlModes new_mode)
 	control_mode = new_mode;
 	return SUCCESS;
 }
-
 int mode_get(enum ControlModes *value)
 {
 	if (!drv_initialised) {
@@ -434,7 +428,34 @@ int mode_get(enum ControlModes *value)
 	*value = control_mode;
 	return SUCCESS;
 }
+int get_control_mode_from_string(char *str_control_mode, enum ControlModes *ret_value)
+{
+	if (strcmp(str_control_mode, "speed") == 0) {
+		*ret_value = SPEED;
+		return SUCCESS;
+	} else if (strcmp(str_control_mode, "position") == 0 ||
+		  strcmp(str_control_mode, "pos") == 0) {
 
+		*ret_value = POSITION;
+		return SUCCESS;
+	} else {
+		return VALUE_CONVERSION_ERROR;
+	}
+}
+int get_control_mode_as_string(enum ControlModes control_mode, char **ret_value)
+{
+	if (control_mode == SPEED) {
+		*ret_value = "Speed";
+		return SUCCESS;
+	} else if (control_mode == POSITION) {
+		*ret_value = "Position";
+		return SUCCESS;
+	} else {
+		return VALUE_CONVERSION_ERROR;
+	}
+}
+
+#pragma region DebugFunctions
 uint64_t get_cycles_count_DEBUG(void)
 {
 	return drv_chnls[CH0].count_cycles;
@@ -464,36 +485,9 @@ int32_t get_pos_d_DEBUG(void)
 {
 	return drv_chnls[CH0].position_delta;
 }
+#pragma endregion DebugFunctions
 
 struct DriverVersion get_driver_version(void)
 {
 	return driver_ver;
-}
-
-int get_control_mode_from_string(char *str_control_mode, enum ControlModes *ret_value)
-{
-	if (strcmp(str_control_mode, "speed") == 0) {
-		*ret_value = SPEED;
-		return SUCCESS;
-	} else if (strcmp(str_control_mode, "position") == 0 ||
-		  strcmp(str_control_mode, "pos") == 0) {
-
-		*ret_value = POSITION;
-		return SUCCESS;
-	} else {
-		return VALUE_CONVERSION_ERROR;
-	}
-}
-
-int get_control_mode_as_string(enum ControlModes control_mode, char **ret_value)
-{
-	if (control_mode == SPEED) {
-		*ret_value = "Speed";
-		return SUCCESS;
-	} else if (control_mode == POSITION) {
-		*ret_value = "Position";
-		return SUCCESS;
-	} else {
-		return VALUE_CONVERSION_ERROR;
-	}
 }
