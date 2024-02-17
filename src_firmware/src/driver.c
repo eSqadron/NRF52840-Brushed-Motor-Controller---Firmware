@@ -23,7 +23,7 @@ static enum ControlModes control_mode = SPEED;
 
 // TODO - rename my_timer
 /// encoder timer - timer is common for both channels
-struct k_timer my_timer;
+struct k_timer continuus_calculation_timer;
 uint64_t count_timer;
 
 /// driver initalised (Was init function called)?
@@ -188,14 +188,14 @@ void update_speed_and_position_continuus(struct k_work *work)
 	}
 }
 
-K_WORK_DEFINE(speed_update_work, update_speed_and_position_continuus);
+K_WORK_DEFINE(speed_and_position_update_work, update_speed_and_position_continuus);
 
-void my_timer_handler(struct k_timer *dummy)
+void continuus_calculation_timer_handler(struct k_timer *dummy)
 {
-	k_work_submit(&speed_update_work);
+	k_work_submit(&speed_and_position_update_work);
 }
 
-K_TIMER_DEFINE(my_timer, my_timer_handler, NULL);
+K_TIMER_DEFINE(continuus_calculation_timer, continuus_calculation_timer_handler, NULL);
 
 void enc_callback(enum ChannelNumber chnl){
 	drv_chnls[chnl].count_cycles += 1;
@@ -266,7 +266,7 @@ int init_pwm_motor_driver()
 
 	}
 
-	k_timer_start(&my_timer, K_MSEC(CONFIG_ENC_TIMER_PERIOD_MS),
+	k_timer_start(&continuus_calculation_timer, K_MSEC(CONFIG_ENC_TIMER_PERIOD_MS),
 		      K_MSEC(CONFIG_ENC_TIMER_PERIOD_MS));
 
 	drv_initialised = true;
