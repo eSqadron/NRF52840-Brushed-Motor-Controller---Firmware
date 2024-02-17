@@ -7,9 +7,9 @@
 #include <string.h>
 #include "driver.h"
 
-struct DriverVersion driver_ver = {
-	.major = 1,
-	.minor = 1,
+static const struct DriverVersion driver_ver = {
+	.major = 2,
+	.minor = 0,
 };
 
 /// temporary debug only variables: - To be deleted after developemnt is finished!
