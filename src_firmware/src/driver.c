@@ -28,6 +28,10 @@ int get_control_mode_from_string(char *str_control_mode, enum ControlModes *ret_
 int get_control_mode_as_string(enum ControlModes control_mode, char **ret_value);
 #pragma endregion InternalFunctions
 
+/// Unit conversion defines
+#define MIN_TO_MS 60000
+#define RPM_TO_MRPM 1000
+
 /// CONTROL MODE - whether speed or position is controlled
 static enum ControlModes control_mode = SPEED;
 /// encoder timer - timer is common for both channels
