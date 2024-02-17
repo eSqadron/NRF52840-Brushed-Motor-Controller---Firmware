@@ -99,7 +99,7 @@ void update_speed_and_position_continuus(struct k_work *work)
 	for(unsigned int chnl = 0; chnl<CONFIG_SUPPORTED_CHANNEL_NUMBER; ++chnl){
 		count_timer += 1; // debug only
 
-		// TODO - move declarations to global scope for efficiency purpouse
+		// TODO - move declarations to global scope for efficiency purpouse (or make them static?)
 
 		uint64_t diff = 0;
 
@@ -132,12 +132,8 @@ void update_speed_and_position_continuus(struct k_work *work)
 			if (control_mode == SPEED) {
 				int32_t speed_delta = drv_chnls[chnl].target_speed_mrpm - drv_chnls[chnl].actual_mrpm;
 
-				// TODO - move pid definitions to kConfig
-				int8_t Kp_numerator = 4;
-				int8_t Kp_denominator = 10;
-
-				int64_t temp_modifier_num = Kp_numerator*speed_delta;
-				int32_t temp_modifier = (int32_t)(temp_modifier_num/Kp_denominator);
+				int64_t temp_modifier_num = CONFIG_KP_NUMERATOR_FOR_SPEED*speed_delta;
+				int32_t temp_modifier = (int32_t)(temp_modifier_num/CONFIG_KP_DENOMINATOR_FOR_SPEED);
 
 				// increase or decrese speed each iteration by Kp * speed_delta
 				drv_chnls[chnl].speed_control = (uint32_t)(drv_chnls[chnl].speed_control + temp_modifier);
