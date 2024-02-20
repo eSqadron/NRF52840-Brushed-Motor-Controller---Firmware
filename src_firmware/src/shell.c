@@ -13,7 +13,13 @@ static int cmd_channel(const struct shell *shell, size_t argc, char *argv[]){
     if(argc == 1){
         shell_fprintf(shell, SHELL_NORMAL, "relevant channel: %d\n", relevant_channel);
     } else if(argc == 2){
-        relevant_channel = (enum ChannelNumber)strtol(argv[1], NULL, 10);
+        enum ChannelNumber new_channel = (enum ChannelNumber)strtol(argv[1], NULL, 10);
+
+		if(new_channel >= CONFIG_SUPPORTED_CHANNEL_NUMBER){
+			shell_fprintf(shell, SHELL_NORMAL, "New channel %d higher than no of supported channels %d\n", new_channel, CONFIG_SUPPORTED_CHANNEL_NUMBER);
+			return 0;
+		}
+		relevant_channel = new_channel;
         shell_fprintf(shell, SHELL_NORMAL, "channel set to: %d\n", relevant_channel);
     }
     return 0;
