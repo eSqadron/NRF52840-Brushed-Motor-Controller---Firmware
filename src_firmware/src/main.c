@@ -6,7 +6,7 @@
 
 #include <zephyr/usb/usb_device.h>
 
-#if CONFIG_IS_BT_SUPPORTED==y
+#if defined(CONFIG_BT_SUPPORT)
 #include "ble_gatt_service.h"
 #endif
 
@@ -14,13 +14,13 @@
 
 #include "driver.h"
 
-#if CONFIG_IS_UART_SHELL_SUPPORTED==y
+#if defined(CONFIG_UART_SHELL_SUPPORT)
 #include <zephyr/drivers/uart.h>
 #endif
 
 int main(void)
 {
-	#if CONFIG_IS_BT_SUPPORTED==y
+	#if defined(CONFIG_BT_SUPPORT)
 	init_bt();
 	#endif
 

@@ -6,7 +6,7 @@
  *
  */
 
-#if CONFIG_IS_BT_SUPPORTED==y
+#if defined(CONFIG_BT_SUPPORT)
 
 int init_bt(void);
 

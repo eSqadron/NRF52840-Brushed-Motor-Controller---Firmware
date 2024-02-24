@@ -3,9 +3,10 @@
 # Copyright (c) 2023 Maciej Baczmanski, Michal Kawiak, Jakub Mazur
 #
 
-menu "Zephyr Kernel"
-source "Kconfig.zephyr"
-endmenu
+# menu "Zephyr Kernel"
+# source "Kconfig.zephyr"
+
+# endmenu
 
 menu "Motor controller configuration"
 config GEARSHIFT_RATIO
@@ -28,13 +29,19 @@ config POSITION_CONTROL_MODIFIER
 	int "Accuracy of position control (if value is 10 position is controlled in deca-degrees; if 100 - centi-degrees etc.)"
 	default 10
 
-config IS_BT_SUPPORTED
+config BT_SUPPORT
 	bool "bool value, 1 if BLE is supposed to be supported, 0 if not"
-	default 0
+	#BLE
+	select BT
+	select BT_SMP
+	select BT_PERIPHERAL
+	select BT_DIS
+	select BT_DIS_PNP
+	default n
 
-config IS_UART_SHELL_SUPPORTED
+config UART_SHELL_SUPPORT
 	bool "bool value, 1 if uart shell is supposed to be supported, 0 if not"
-	default 1
+	default y
 
 config SUPPORTED_CHANNEL_NUMBER
 	int "number of channels supported by the hardware"
@@ -48,4 +55,23 @@ config KP_DENOMINATOR_FOR_SPEED
 	int "proportional part denominator for speed control"
 	default 10
 
+
+if BT_SUPPORT
+config BT_DEVICE_NAME
+	default "Motor Controller"
+
+config BT_DEVICE_APPEARANCE
+	default 833
+endif
+
+if UART_SHELL_SUPPORT
+config USB_DEVICE_VID
+	default 0x1915
+
+config USB_DEVICE_PID
+	default 0x0000
+endif
+
 endmenu
+
+source "Kconfig.zephyr"

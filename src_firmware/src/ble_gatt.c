@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2023 Maciej Baczmanski, Michal Kawiak, Jakub Mazur
 // Copyright (c) 2016 Intel Corporation
-#if CONFIG_IS_BT_SUPPORTED==y
+#if defined(CONFIG_BT_SUPPORT)
 
 #include "driver.h"
 
@@ -55,7 +55,7 @@ static ssize_t write_ble(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 		}
 		return len;
 	} else if (len == 5) {
-		target_speed_set(convertToUint32(data+1U));
+		target_speed_set(convertToUint32(data+1U), CH0);
 	}
 	return len;
 }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2023 Maciej Baczmanski, Michal Kawiak, Jakub Mazur
-#if (CONFIG_IS_UART_SHELL_SUPPORTED==y)
+#if defined (CONFIG_UART_SHELL_SUPPORT)
 
 #include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>

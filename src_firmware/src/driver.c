@@ -41,17 +41,22 @@ static bool drv_initialised;
 
 // Struct representing singular channel, including channel - dependant variables
 struct DriverChannel{
-	/// SPEED control
-	uint32_t target_speed_mrpm;// Target set by user
-	uint32_t actual_mrpm; // actual speed calculated from encoder pins
-	uint32_t speed_control; // PID output -> pwm calculations input
+	/// PINS definitions
+	/// motor out
+	const struct pwm_dt_spec pwm_motor_driver;
+	const struct gpio_dt_spec set_dir_pins[2];
+	/// enc in
+	const struct gpio_dt_spec enc_pins[2];
+	struct gpio_callback enc_cb[2];
 
 	/// ENCODER - variables used for actual speed calculation based on encoder pin and timer interrupts
 	uint64_t count_cycles;
 	uint64_t old_count_cycles;
 
-	/// BOOLS - is motor on?
-	bool is_motor_on; // was motor_on function called?
+	/// SPEED control
+	uint32_t target_speed_mrpm;// Target set by user
+	uint32_t actual_mrpm; // actual speed calculated from encoder pins
+	uint32_t speed_control; // PID output -> pwm calculations input
 
 	/// POSITION control
 	uint32_t current_position;
@@ -61,16 +66,10 @@ struct DriverChannel{
 
 	const uint32_t max_position;
 
-	/// PINS definitions
-	/// motor out
-	const struct pwm_dt_spec pwm_motor_driver;
-	const struct gpio_dt_spec set_dir_pins[2];
-
-	/// enc in
-	const struct gpio_dt_spec enc_pins[2];
-	struct gpio_callback enc_cb[2];
-
 	void (*enc_callback_ptr)(const struct device*, struct gpio_callback*, uint32_t);
+
+	/// BOOLS - is motor on?
+	bool is_motor_on; // was motor_on function called?
 };
 static struct DriverChannel drv_chnls[CONFIG_SUPPORTED_CHANNEL_NUMBER] = {
 	{
@@ -263,6 +262,8 @@ int motor_on(enum MotorDirection direction, enum ChannelNumber chnl)
 	if (!drv_initialised) {
 		return NOT_INITIALISED;
 	}
+
+	// TODO - change direction during spinning
 
 	if (drv_chnls[chnl].is_motor_on) {
 		// Motor is already on, no need for starting it again
