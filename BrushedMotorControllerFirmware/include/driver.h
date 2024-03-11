@@ -9,6 +9,7 @@
 
 /// @brief motor direction definitions
 enum MotorDirection {
+	STOPPED,
 	FORWARD,
 	BACKWARD
 };
@@ -69,13 +70,19 @@ uint32_t get_current_max_speed(void);
 /// @return true - motor is on; false - motor is off
 bool get_motor_off_on(enum ChannelNumber chnl);
 
+/// @brief getter for spinning direction calculated based on encoder feedback
+/// @param  channel number for direction
+/// @param  output - spinning direction
+/// @return code defined in error_codes
+int get_motor_actual_direction(enum ChannelNumber chnl, enum MotorDirection *out_dir);
+
 /// @brief Simple getter for firmware software version
 /// @return DriverVersion struct of major and minor version
 struct DriverVersion get_driver_version(void);
 
 /// @brief Simple getter for target speed set with target_speed_set function
 /// @return uint32_t representing target speed.
-uint32_t speed_target_get(void);
+uint32_t speed_target_get(enum ChannelNumber chnl);
 
 /// @brief utility function for converting control mode as string to control mode as proper enum
 /// @param str_control_mode control mode as string
