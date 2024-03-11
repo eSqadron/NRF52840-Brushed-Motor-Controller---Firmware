@@ -65,7 +65,7 @@ static ssize_t read_ble_template_active(struct bt_conn *conn, const struct bt_ga
 static ssize_t read_ble_speed(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 			 void *buf, uint16_t len, uint16_t offset)
 {
-	uint32_t speed_tmp = speed_target_get();
+	uint32_t speed_tmp = speed_target_get(CH0);
 
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, &speed_tmp,
 				 sizeof(speed_tmp));
