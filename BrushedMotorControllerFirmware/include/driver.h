@@ -2,6 +2,7 @@
  *
  * Copyright (c) 2023 Maciej Baczmanski, Michal Kawiak, Jakub Mazur
  */
+#pragma once
 
 #include <zephyr/kernel.h>
 #include "return_codes.h"

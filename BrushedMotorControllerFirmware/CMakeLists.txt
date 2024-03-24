@@ -14,6 +14,7 @@ file(GLOB SRC_files
 
 file(GLOB INC_files
      "include/*.c"
+     "include/**/*.c"
 )
 
 target_sources(app PRIVATE ${SRC_files} ${INC_files})
