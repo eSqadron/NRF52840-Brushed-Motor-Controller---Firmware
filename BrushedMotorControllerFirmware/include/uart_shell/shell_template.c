@@ -117,6 +117,8 @@ static int cmd_template_apply(const struct shell *shell, size_t argc, char *argv
 			      get_errno_error_code(), get_errno_error_line());
 	return 0;
 	case (SUCCESS):
+	break;
+	default:
 		shell_fprintf(shell, SHELL_ERROR,
 			      "Other error while searching for saved template: %d!\n", ret);
 	return 0;
