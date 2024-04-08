@@ -95,6 +95,8 @@ static struct DriverChannel drv_chnls[CONFIG_SUPPORTED_CHANNEL_NUMBER] = {
 	}
 };
 
+
+
 #if defined(CONFIG_BOARD_NRF52840DONGLE_NRF52840) // BOOT functionality
 static const struct gpio_dt_spec out_boot = GPIO_DT_SPEC_GET(DT_ALIAS(enter_boot_p), gpios);
 void enter_boot(void)
