@@ -84,6 +84,7 @@ static struct DriverChannel drv_chnls[CONFIG_SUPPORTED_CHANNEL_NUMBER] = {
 		.enc_pins[P1] = GPIO_DT_SPEC_GET_BY_IDX(DT_ALIAS(get_enc_p2), gpios, 0),
 		.actual_dir = STOPPED
 	},
+	#if (CONFIG_SUPPORTED_CHANNEL_NUMBER > 1)
 	{
 		.max_pos = 360u * CONFIG_POSITION_CONTROL_MODIFIER,
 		.pwm_motor_driver =  PWM_DT_SPEC_GET_BY_IDX(DT_ALIAS(pwm_drv), 1),
@@ -93,6 +94,7 @@ static struct DriverChannel drv_chnls[CONFIG_SUPPORTED_CHANNEL_NUMBER] = {
 		.enc_pins[P1] = GPIO_DT_SPEC_GET_BY_IDX(DT_ALIAS(get_enc_p2), gpios, 1),
 		.actual_dir = STOPPED
 	}
+	#endif
 };
 
 #if defined(CONFIG_BOARD_NRF52840DONGLE_NRF52840) // BOOT functionality
