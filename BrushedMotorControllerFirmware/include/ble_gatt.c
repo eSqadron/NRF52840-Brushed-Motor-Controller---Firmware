@@ -10,6 +10,7 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/bluetooth/gatt.h>
+#include "ble_gatt_service.h"
 #include "return_codes.h"
 
 #define UUID_GENERATOR(val)	BT_UUID_DECLARE_128(BT_UUID_128_ENCODE(val,		\
@@ -19,7 +20,6 @@
 								       0xd1f1fd9385fd))
 
 
-#define SERVICE_UUID			BT_UUID_DECLARE_16(0xffaa)
 #define TX_CHAR_UUID_COMMAND		UUID_GENERATOR(0x6e006610)
 #define RX_CHAR_UUID_TEMPL_LIST		UUID_GENERATOR(0x6e006620)
 #define RX_CHAR_UUID_TEMPL_ACTIVE	UUID_GENERATOR(0x6e006621)
@@ -142,7 +142,7 @@ static ssize_t write_ble(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 
 
 BT_GATT_SERVICE_DEFINE(hrs_svc,
-	BT_GATT_PRIMARY_SERVICE(SERVICE_UUID),
+	BT_GATT_PRIMARY_SERVICE(BT_UUID_DECLARE_128(SERVICE_UUID)),
 	BT_GATT_CHARACTERISTIC(RX_CHAR_UUID_TEMPL_LIST, BT_GATT_CHRC_READ,
 			       BT_GATT_PERM_READ,
 			       read_ble_template_list, NULL, NULL),
