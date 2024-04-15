@@ -51,8 +51,12 @@ struct DriverChannel {
 
 	/// ENCODER - variables used for actual speed calculation based on encoder pin and
 	// timer interrupts
-	uint64_t count_cycles;
-	uint64_t old_count_cycles;
+	// TODO - mutex locking instead of volatile?
+	uint64_t count_cycles_fwd;
+	uint64_t old_count_cycles_fwd;
+
+	uint64_t count_cycles_bck;
+	uint64_t old_count_cycles_bck;
 
 	/// SPEED control
 	uint32_t target_speed_mrpm;// Target set by user
@@ -109,22 +113,43 @@ void enter_boot(void)
 #pragma region TimerWorkCallback // timer interrupt internal functions
 static void update_speed_and_position_continuous(struct k_work *work)
 {
+	uint64_t diff_fwd = 0;
+	uint64_t diff_bck = 0;
+	uint64_t diff = 0;
+
 	for (enum ChannelNumber chnl = 0; chnl < CONFIG_SUPPORTED_CHANNEL_NUMBER; ++chnl) {
 		count_timer += 1; // debug only
 
-		uint64_t diff = 0;
-
 		// count encoder interrupts between timer interrupts:
-		if (drv_chnls[chnl].count_cycles > drv_chnls[chnl].old_count_cycles) {
-			diff = drv_chnls[chnl].count_cycles - drv_chnls[chnl].old_count_cycles;
+		if (drv_chnls[chnl].count_cycles_fwd > drv_chnls[chnl].old_count_cycles_fwd) {
+			diff_fwd = drv_chnls[chnl].count_cycles_fwd -
+				   drv_chnls[chnl].old_count_cycles_fwd;
+		} else {
+			diff_fwd = 0;
 		}
-		drv_chnls[chnl].old_count_cycles = drv_chnls[chnl].count_cycles;
-		enum MotorDirection dir;
+
+		if (drv_chnls[chnl].count_cycles_bck > drv_chnls[chnl].old_count_cycles_bck) {
+			diff_bck = drv_chnls[chnl].count_cycles_bck -
+				   drv_chnls[chnl].old_count_cycles_bck;
+		} else {
+			diff_bck = 0;
+		}
+
+		drv_chnls[chnl].old_count_cycles_fwd = drv_chnls[chnl].count_cycles_fwd;
+		drv_chnls[chnl].old_count_cycles_bck = drv_chnls[chnl].count_cycles_bck;
+
 		int8_t pos_diff_modifier = 1;
 
-		get_motor_actual_direction(chnl, &dir);
-		if (dir == BACKWARD) {
+		if (diff_fwd > diff_bck) {
+			diff = diff_fwd - diff_bck;
+			drv_chnls[chnl].actual_dir = FORWARD;
+		} else if (diff_fwd < diff_bck) {
+			diff = diff_bck - diff_fwd;
+			drv_chnls[chnl].actual_dir = BACKWARD;
 			pos_diff_modifier = -1;
+		} else {
+			diff = 0;
+			drv_chnls[chnl].actual_dir = STOPPED;
 		}
 
 		// calculate actual position
@@ -227,18 +252,18 @@ static void enc_callback(enum ChannelNumber chnl, enum PinNumber pin)
 	// what if motor is stuck and hitting one enc. from two directions?
 	// How will speed calculation behave if motor will keep changing position?
 	// (ex. when setting position?)
-	drv_chnls[chnl].count_cycles += 1;
-
-	if (drv_chnls[chnl].actual_mrpm == 0) {
-		drv_chnls[chnl].actual_dir = STOPPED;
-		return;
-	}
 
 	if (pin == P0) {
 		if (drv_chnls[chnl].prev_val_enc[P0] == drv_chnls[chnl].prev_val_enc[P1]) {
-			drv_chnls[chnl].actual_dir = BACKWARD;
+			drv_chnls[chnl].count_cycles_bck += 1;
 		} else {
-			drv_chnls[chnl].actual_dir = FORWARD;
+			drv_chnls[chnl].count_cycles_fwd += 1;
+		}
+	} else if (pin == P1) {
+		if (drv_chnls[chnl].prev_val_enc[P0] == drv_chnls[chnl].prev_val_enc[P1]) {
+			drv_chnls[chnl].count_cycles_fwd += 1;
+		} else {
+			drv_chnls[chnl].count_cycles_bck += 1;
 		}
 	}
 }
@@ -347,8 +372,12 @@ return_codes_t motor_on(enum MotorDirection direction, enum ChannelNumber chnl)
 	}
 
 	drv_chnls[chnl].speed_control = 0;
-	drv_chnls[chnl].count_cycles = 0;
-	drv_chnls[chnl].old_count_cycles = 0;
+
+	drv_chnls[chnl].count_cycles_fwd = 0;
+	drv_chnls[chnl].old_count_cycles_fwd = 0;
+
+	drv_chnls[chnl].count_cycles_bck = 0;
+	drv_chnls[chnl].old_count_cycles_bck = 0;
 
 	ret = set_direction_raw(direction, chnl);
 
@@ -459,8 +488,12 @@ return_codes_t target_speed_set(uint32_t value, enum ChannelNumber chnl)
 		return ERR_UNSUPPORTED_FUNCTION_IN_CURRENT_MODE;
 	}
 	drv_chnls[chnl].target_speed_mrpm = value;
-	drv_chnls[chnl].count_cycles = 0;
-	drv_chnls[chnl].old_count_cycles = 0;
+
+	drv_chnls[chnl].count_cycles_fwd = 0;
+	drv_chnls[chnl].old_count_cycles_fwd = 0;
+
+	drv_chnls[chnl].count_cycles_bck = 0;
+	drv_chnls[chnl].old_count_cycles_bck = 0;
 	return SUCCESS;
 }
 return_codes_t speed_get(enum ChannelNumber chnl, uint32_t *value)
@@ -556,7 +589,7 @@ return_codes_t get_control_mode_as_string(enum ControlModes control_mode, char *
 #pragma region DebugFunctions
 uint64_t get_cycles_count_DEBUG(void)
 {
-	return drv_chnls[CH0].count_cycles;
+	return drv_chnls[CH0].count_cycles_fwd;
 }
 
 uint64_t get_time_cycles_count_DEBUG(void)
