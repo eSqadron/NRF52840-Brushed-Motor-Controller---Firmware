@@ -93,6 +93,22 @@ static int cmd_position(const struct shell *shell, size_t argc, char *argv[])
 	return 0;
 }
 
+static int cmd_position_zero(const struct shell *shell, size_t argc, char *argv[])
+{
+	return_codes_t ret;
+
+	ret = position_reset_zero(get_relevant_channel());
+
+	if (ret == SUCCESS) {
+		shell_fprintf(shell, SHELL_NORMAL, "Position reset succesfulll\n");
+
+	} else {
+		shell_fprintf(shell, SHELL_ERROR, "Error, code: %d!\n", ret);
+	}
+
+	return 0;
+}
+
 static int cmd_mode(const struct shell *shell, size_t argc, char *argv[])
 {
 	return_codes_t ret;
@@ -176,7 +192,12 @@ SHELL_CMD_ARG_REGISTER(speed, NULL,
 	"speed in milli RPM (one thousands of RPM)\nspeed to get speed\n speed <val> to set speed",
 	cmd_speed, 1, 1);
 
-SHELL_CMD_ARG_REGISTER(pos, NULL, "get/set position in deca-degree", cmd_position, 1, 1);
+SHELL_STATIC_SUBCMD_SET_CREATE(position_tree,
+SHELL_CMD(zero,       NULL, "Zero position to current position", cmd_position_zero),
+SHELL_SUBCMD_SET_END
+);
+
+SHELL_CMD_ARG_REGISTER(pos, &position_tree, "get/set position in deca-degree", cmd_position, 1, 1);
 SHELL_CMD_ARG_REGISTER(mode, NULL, "choose mode, pos/speed control. Default speed", cmd_mode, 1, 1);
 
 SHELL_CMD_REGISTER(actual_direction, NULL, "get motor actual spinning direction",

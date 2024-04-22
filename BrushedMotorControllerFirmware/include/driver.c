@@ -67,7 +67,8 @@ struct DriverChannel {
 	uint32_t curr_pos;
 	uint32_t target_position;
 
-	int32_t position_delta;//TEMP
+	int32_t position_delta; //TEMP
+	// I think it can be turned into local variable only in method that uses it?
 
 	const uint32_t max_pos;
 
@@ -553,6 +554,26 @@ return_codes_t mode_get(enum ControlModes *value)
 	}
 
 	*value = control_mode;
+	return SUCCESS;
+}
+
+return_codes_t position_reset_zero(enum ChannelNumber chnl)
+{
+	if (!drv_initialised) {
+		return ERR_NOT_INITIALISED;
+	}
+
+	if (control_mode != POSITION) {
+		return ERR_UNSUPPORTED_FUNCTION_IN_CURRENT_MODE;
+	}
+
+	if (drv_chnls[chnl].actual_dir != STOPPED) {
+		return ERR_MOTOR_SHOULD_BE_STATIONARY;
+	}
+
+	drv_chnls[chnl].curr_pos = 0;
+	drv_chnls[chnl].target_position = 0;
+
 	return SUCCESS;
 }
 

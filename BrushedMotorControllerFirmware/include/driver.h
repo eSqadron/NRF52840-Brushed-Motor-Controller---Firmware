@@ -46,21 +46,21 @@ void init_pwm_motor_driver(void);
 
 /// @brief Set new desired (targeted) speed AND set the pwm
 /// @param value - value in mili RPM
-/// @return error defined in error_codes
+/// @return error defined in return_codes.h
 return_codes_t target_speed_set(uint32_t value, enum ChannelNumber chnl);
 
 /// @brief Get current actual speed (from encoders)  - TODO - implement with encoders
 /// @param value - variable to save speed
-/// @return error defined in error_codes
+/// @return error defined in return_codes.h
 return_codes_t speed_get(enum ChannelNumber chnl, uint32_t *value);
 
 /// @brief Turn motor on in proper direction, without modyfing target speed or set pwm output.
 /// @param direction - FORWARD or BACKWARD
-/// @return error defined in error_codes
+/// @return error defined in return_codes.h
 return_codes_t motor_on(enum MotorDirection direction, enum ChannelNumber chnl);
 
 /// @brief Turn motor off, without modyfing pwm output
-/// @return error defined in error_codes
+/// @return error defined in return_codes.h
 return_codes_t motor_off(enum ChannelNumber chnl);
 
 /// @brief Simple getter for max speed (set by init_pwm_motor_driver)
@@ -74,7 +74,7 @@ bool get_motor_off_on(enum ChannelNumber chnl);
 /// @brief getter for spinning direction calculated based on encoder feedback
 /// @param  channel number for direction
 /// @param  output - spinning direction
-/// @return code defined in error_codes
+/// @return code defined in return_codes.h
 int get_motor_actual_direction(enum ChannelNumber chnl, enum MotorDirection *out_dir);
 
 /// @brief Simple getter for firmware software version
@@ -88,13 +88,13 @@ uint32_t speed_target_get(enum ChannelNumber chnl);
 /// @brief utility function for converting control mode as string to control mode as proper enum
 /// @param str_control_mode control mode as string
 /// @param ret_value output - control mode as control mode enum
-/// @return error defined in error_codes
+/// @return error defined in return_codes.h
 return_codes_t get_control_mode_from_string(char *str_control_mode, enum ControlModes *ret_value);
 
 /// @brief utility function for converting control mode from enum to string
 /// @param control_mode control mode as enum
 /// @param ret_value output - control mode as string
-/// @return error defined in error_codes
+/// @return error defined in return_codes.h
 return_codes_t get_control_mode_as_string(enum ControlModes control_mode, char **ret_value);
 
 return_codes_t target_position_set(uint32_t new_target_position, enum ChannelNumber chnl);
@@ -104,6 +104,11 @@ return_codes_t position_get(uint32_t *value, enum ChannelNumber chnl);
 return_codes_t mode_set(enum ControlModes new_mode);
 
 return_codes_t mode_get(enum ControlModes *value);
+
+/// @brief reset zero position to current position.
+/// @param chnl - channel, for which should it be reset
+/// @return error defined in return_codes.h
+return_codes_t position_reset_zero(enum ChannelNumber chnl);
 
 #if defined(CONFIG_BOARD_NRF52840DONGLE_NRF52840)
 /// @brief Enter bootloader mode (in order to flash new software via nRF connect programmer)
