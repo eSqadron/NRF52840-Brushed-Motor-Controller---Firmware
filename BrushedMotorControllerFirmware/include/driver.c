@@ -14,6 +14,8 @@
 
 #define PINS_PER_CHANNEL 2
 
+#define FULL_SPIN_DEGREES (360u * CONFIG_POSITION_CONTROL_MODIFIER)
+
 static const struct DriverVersion driver_ver = {
 	.major = 2,
 	.minor = 2,
@@ -70,8 +72,6 @@ struct DriverChannel {
 	int32_t position_delta; //TEMP
 	// I think it can be turned into local variable only in method that uses it?
 
-	const uint32_t max_pos;
-
 	bool prev_val_enc[PINS_PER_CHANNEL];
 	enum MotorDirection actual_dir;
 
@@ -81,7 +81,6 @@ struct DriverChannel {
 
 static struct DriverChannel drv_chnls[CONFIG_SUPPORTED_CHANNEL_NUMBER] = {
 	{
-		.max_pos = 360u * CONFIG_POSITION_CONTROL_MODIFIER,
 		.pwm_motor_driver =  PWM_DT_SPEC_GET_BY_IDX(DT_ALIAS(pwm_drv), 0),
 		.set_dir_pins[P0] = GPIO_DT_SPEC_GET_BY_IDX(DT_ALIAS(set_dir_p1), gpios, 0),
 		.set_dir_pins[P1] = GPIO_DT_SPEC_GET_BY_IDX(DT_ALIAS(set_dir_p2), gpios, 0),
@@ -91,7 +90,6 @@ static struct DriverChannel drv_chnls[CONFIG_SUPPORTED_CHANNEL_NUMBER] = {
 	},
 	#if (CONFIG_SUPPORTED_CHANNEL_NUMBER > 1)
 	{
-		.max_pos = 360u * CONFIG_POSITION_CONTROL_MODIFIER,
 		.pwm_motor_driver =  PWM_DT_SPEC_GET_BY_IDX(DT_ALIAS(pwm_drv), 1),
 		.set_dir_pins[P0] = GPIO_DT_SPEC_GET_BY_IDX(DT_ALIAS(set_dir_p1), gpios, 1),
 		.set_dir_pins[P1] = GPIO_DT_SPEC_GET_BY_IDX(DT_ALIAS(set_dir_p2), gpios, 1),
@@ -154,14 +152,14 @@ static void update_speed_and_position_continuous(struct k_work *work)
 		}
 
 		// calculate actual position
-		int32_t pos_diff = (diff*drv_chnls[chnl].max_pos) /
+		int32_t pos_diff = (diff*FULL_SPIN_DEGREES) /
 				   (CONFIG_ENC_STEPS_PER_ROTATION * CONFIG_GEARSHIFT_RATIO);
 		int32_t new_pos = (int32_t)drv_chnls[chnl].curr_pos + pos_diff_modifier * pos_diff;
 
 		if (new_pos <= 0) {
-			drv_chnls[chnl].curr_pos = (uint32_t)(drv_chnls[chnl].max_pos + new_pos);
+			drv_chnls[chnl].curr_pos = (uint32_t)(FULL_SPIN_DEGREES + new_pos);
 		} else {
-			drv_chnls[chnl].curr_pos = ((uint32_t)new_pos)%(drv_chnls[chnl].max_pos);
+			drv_chnls[chnl].curr_pos = ((uint32_t)new_pos) % (FULL_SPIN_DEGREES);
 		}
 
 		// calculate actual speed
@@ -224,7 +222,7 @@ static void update_speed_and_position_continuous(struct k_work *work)
 
 				// TODO - it has issues with keeping "0" position, improve!
 				if (drv_chnls[chnl].position_delta >
-						(drv_chnls[chnl].max_pos) /
+						(FULL_SPIN_DEGREES) /
 						(CONFIG_POS_CONTROL_PRECISION_MODIFIER)) {
 					// TODO - add actual PID! (instead of slow spinning!)
 					drv_chnls[chnl].target_speed_mrpm =
