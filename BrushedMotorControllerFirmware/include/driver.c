@@ -220,16 +220,22 @@ static void update_speed_and_position_continuous(struct k_work *work)
 						set_direction_raw(FORWARD, chnl);
 				}
 
-				// TODO - it has issues with keeping "0" position, improve!
-				if (drv_chnls[chnl].position_delta >
+				if (drv_chnls[chnl].position_delta <=
 						(FULL_SPIN_DEGREES) /
-						(CONFIG_POS_CONTROL_PRECISION_MODIFIER)) {
+						(CONFIG_POS_CONTROL_PRECISION_MODIFIER)
+				    ||
+				    (FULL_SPIN_DEGREES - drv_chnls[chnl].position_delta) <=
+						(FULL_SPIN_DEGREES) /
+						(CONFIG_POS_CONTROL_PRECISION_MODIFIER)
+				   ) {
+					// if position_delta is small enough, or large enough that
+					// it is actually small "from other side"
+					drv_chnls[chnl].target_speed_mrpm = 0;
+				} else {
 					// TODO - add actual PID! (instead of slow spinning!)
 					drv_chnls[chnl].target_speed_mrpm =
 						CONFIG_SPEED_MAX_MRPM /
 						CONFIG_POS_CONTROL_MIN_SPEED_MODIFIER;
-				} else {
-					drv_chnls[chnl].target_speed_mrpm = 0;
 				}
 				ret_debug = speed_pwm_set(drv_chnls[chnl].target_speed_mrpm, chnl);
 			}
