@@ -8,6 +8,8 @@
 #include "return_codes.h"
 #include "driver.h"
 
+#include "calculations.h"
+
 /// Unit conversion defines
 #define MIN_TO_MS 60000
 #define RPM_TO_MRPM 1000
@@ -64,6 +66,9 @@ struct DriverChannel {
 	uint32_t target_speed_mrpm;// Target set by user
 	uint32_t actual_mrpm; // actual speed calculated from encoder pins
 	uint32_t speed_control; // PID output -> pwm calculations input
+
+	// TODO - separe target_speed_mrpm and speed_control for position control
+	// from speed control!
 
 	/// POSITION control
 	uint32_t curr_pos;
@@ -137,6 +142,7 @@ static void update_speed_and_position_continuous(struct k_work *work)
 		drv_chnls[chnl].old_count_cycles_fwd = drv_chnls[chnl].count_cycles_fwd;
 		drv_chnls[chnl].old_count_cycles_bck = drv_chnls[chnl].count_cycles_bck;
 
+		// Modifier, whether motor moved forward (1) or backward (-1)
 		int8_t pos_diff_modifier = 1;
 
 		if (diff_fwd > diff_bck) {
@@ -162,6 +168,11 @@ static void update_speed_and_position_continuous(struct k_work *work)
 			drv_chnls[chnl].curr_pos = ((uint32_t)new_pos) % (FULL_SPIN_DEGREES);
 		}
 
+		if (drv_chnls[chnl].curr_pos == FULL_SPIN_DEGREES) {
+			// TODO - why this doesn't work? 360 still appears sometimes!
+			drv_chnls[chnl].curr_pos = 0u;
+		}
+
 		// calculate actual speed
 		drv_chnls[chnl].actual_mrpm = RPM_TO_MRPM * MIN_TO_MS * diff /
 			(CONFIG_ENC_STEPS_PER_ROTATION *
@@ -173,18 +184,14 @@ static void update_speed_and_position_continuous(struct k_work *work)
 			int ret;
 
 			if (control_mode == SPEED) {
-				int32_t speed_delta = drv_chnls[chnl].target_speed_mrpm -
-						      drv_chnls[chnl].actual_mrpm;
-
-				int64_t temp_modifier_num = CONFIG_KP_NUMERATOR_FOR_SPEED *
-							    speed_delta;
-				int32_t temp_modifier = (int32_t)(temp_modifier_num /
-								  CONFIG_KP_DENOMINATOR_FOR_SPEED);
-
 				// increase or decrese speed each iteration by Kp * speed_delta
-				drv_chnls[chnl].speed_control = (uint32_t)
-								(drv_chnls[chnl].speed_control +
-								 temp_modifier);
+				drv_chnls[chnl].speed_control =
+					(uint32_t)(drv_chnls[chnl].speed_control +
+						   CALC_SPEED_CONTROL(
+							drv_chnls[chnl].target_speed_mrpm,
+							drv_chnls[chnl].actual_mrpm
+						   )
+						  );
 
 				// Cap control at max rpm speed,
 				// to avoid cumulation of too high speeds.
@@ -194,9 +201,13 @@ static void update_speed_and_position_continuous(struct k_work *work)
 
 				ret = speed_pwm_set(drv_chnls[chnl].speed_control, chnl);
 			} else if (control_mode == POSITION) {
+
+				// Difference from target position and actual position
 				drv_chnls[chnl].position_delta = drv_chnls[chnl].target_position -
 								 drv_chnls[chnl].curr_pos;
 
+				// Check if motor should spin backward to get to the target
+				// (if target is smalller number than current position)
 				bool is_target_behind = false;
 				if (drv_chnls[chnl].position_delta < 0) {
 					drv_chnls[chnl].position_delta =
@@ -208,6 +219,7 @@ static void update_speed_and_position_continuous(struct k_work *work)
 				if (drv_chnls[chnl].position_delta /
 					CONFIG_POSITION_CONTROL_MODIFIER
 						< 180) {
+					// If target is closer that 180 degree
 
 					if (!is_target_behind)
 						set_direction_raw(FORWARD, chnl);
@@ -232,12 +244,24 @@ static void update_speed_and_position_continuous(struct k_work *work)
 					// it is actually small "from other side"
 					drv_chnls[chnl].target_speed_mrpm = 0;
 				} else {
+					if(drv_chnls[chnl].target_speed_mrpm <
+					   CONFIG_POS_CONTROL_MIN_SPEED_MODIFIER) {
+
+						drv_chnls[chnl].target_speed_mrpm =
+							CONFIG_POS_CONTROL_MIN_SPEED_MODIFIER;
+					}
+
 					// TODO - add actual PID! (instead of slow spinning!)
 					drv_chnls[chnl].target_speed_mrpm =
-						CONFIG_SPEED_MAX_MRPM /
-						CONFIG_POS_CONTROL_MIN_SPEED_MODIFIER;
+						drv_chnls[chnl].target_speed_mrpm +
+						CALC_SPEED_CONTROL(
+							CONFIG_SPEED_MAX_MRPM /
+							CONFIG_POS_CONTROL_MIN_SPEED_MODIFIER,
+							drv_chnls[chnl].actual_mrpm
+						)/10;
 				}
-				ret_debug = speed_pwm_set(drv_chnls[chnl].target_speed_mrpm, chnl);
+				ret_debug =
+					speed_pwm_set(drv_chnls[chnl].target_speed_mrpm, chnl);
 			}
 		}
 	}
@@ -504,7 +528,7 @@ return_codes_t target_speed_set(uint32_t value, enum ChannelNumber chnl)
 return_codes_t speed_get(enum ChannelNumber chnl, uint32_t *value)
 {
 	if (drv_initialised) {
-		*value = drv_chnls[chnl].actual_mrpm; // TODO - get speed from encoder
+		*value = drv_chnls[chnl].actual_mrpm;
 		return SUCCESS;
 	}
 
@@ -519,8 +543,14 @@ uint32_t get_current_max_speed(void)
 	return CONFIG_SPEED_MAX_MRPM;
 }
 
-return_codes_t target_position_set(uint32_t new_target_position, enum ChannelNumber chnl)
+return_codes_t target_position_set(int32_t new_target_position, enum ChannelNumber chnl)
 {
+	// Wrap target position to range 0-360 degree
+	new_target_position = new_target_position % (int32_t)FULL_SPIN_DEGREES;
+	new_target_position = (new_target_position < 0) ?
+					(FULL_SPIN_DEGREES + new_target_position) :
+					new_target_position;
+
 	if (!drv_initialised) {
 		return ERR_NOT_INITIALISED;
 	}
@@ -529,13 +559,19 @@ return_codes_t target_position_set(uint32_t new_target_position, enum ChannelNum
 		return ERR_UNSUPPORTED_FUNCTION_IN_CURRENT_MODE;
 	}
 
-	drv_chnls[chnl].target_position = new_target_position;
+	drv_chnls[chnl].target_position = (uint32_t)new_target_position;
 	return SUCCESS;
 }
 return_codes_t position_get(uint32_t *value, enum ChannelNumber chnl)
 {
 	if (!drv_initialised) {
 		return ERR_NOT_INITIALISED;
+	}
+
+	if(drv_chnls[chnl].curr_pos == FULL_SPIN_DEGREES) {
+		// TODO - remove this when continuus update will treat 360 as 0 as it should!
+		*value = 0u;
+		return SUCCESS;
 	}
 
 	*value = drv_chnls[chnl].curr_pos;
@@ -581,34 +617,18 @@ return_codes_t position_reset_zero(enum ChannelNumber chnl)
 	return SUCCESS;
 }
 
-// TODO - remove, use shell arguments instead
-return_codes_t get_control_mode_from_string(char *str_control_mode, enum ControlModes *ret_value)
-{
-	if (strcmp(str_control_mode, "speed") == 0) {
-		*ret_value = SPEED;
-		return SUCCESS;
-	} else if (strcmp(str_control_mode, "position") == 0 ||
-		  strcmp(str_control_mode, "pos") == 0) {
-
-		*ret_value = POSITION;
-		return SUCCESS;
-	} else {
-		return ERR_VALUE_CONVERSION_ERROR;
-	}
-}
-
-// TODO - remove, use shell arguments instead
 return_codes_t get_control_mode_as_string(enum ControlModes control_mode, char **ret_value)
 {
-	if (control_mode == SPEED) {
-		*ret_value = "Speed";
-		return SUCCESS;
-	} else if (control_mode == POSITION) {
-		*ret_value = "Position";
-		return SUCCESS;
-	} else {
-		return ERR_VALUE_CONVERSION_ERROR;
-	}
+	static const char * const modes_names[] = {
+		[SPEED] = "Speed",
+		[POSITION] = "Position"
+	};
+
+	// TODO - add some range check
+
+	*ret_value = modes_names[control_mode];
+
+	return SUCCESS;
 }
 
 #pragma region DebugFunctions

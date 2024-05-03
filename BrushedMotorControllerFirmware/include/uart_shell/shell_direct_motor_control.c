@@ -58,7 +58,7 @@ static int cmd_speed(const struct shell *shell, size_t argc, char *argv[])
 static int cmd_position(const struct shell *shell, size_t argc, char *argv[])
 {
 	return_codes_t ret;
-	uint32_t position;
+	int32_t position;
 
 	if (argc == 1) {
 		ret = position_get(&position, get_relevant_channel());
@@ -71,7 +71,7 @@ static int cmd_position(const struct shell *shell, size_t argc, char *argv[])
 
 		return 0;
 	} else if (argc == 2) {
-		position = (uint32_t)strtol(argv[1], NULL, 10);
+		position = (int32_t)strtol(argv[1], NULL, 10);
 		ret = target_position_set(position, get_relevant_channel());
 		switch (ret) {
 		case (SUCCESS):
@@ -100,7 +100,7 @@ static int cmd_position_zero(const struct shell *shell, size_t argc, char *argv[
 	ret = position_reset_zero(get_relevant_channel());
 
 	if (ret == SUCCESS) {
-		shell_fprintf(shell, SHELL_NORMAL, "Position reset succesfulll\n");
+		shell_fprintf(shell, SHELL_NORMAL, "Position reset succesfull\n");
 
 	} else {
 		shell_fprintf(shell, SHELL_ERROR, "Error, code: %d!\n", ret);
@@ -109,56 +109,7 @@ static int cmd_position_zero(const struct shell *shell, size_t argc, char *argv[
 	return 0;
 }
 
-static int cmd_mode(const struct shell *shell, size_t argc, char *argv[])
-{
-	return_codes_t ret;
-	enum ControlModes mode;
 
-	if (argc == 1) {
-		ret = mode_get(&mode);
-		switch (ret) {
-		case (SUCCESS):
-			char *mode_as_str = "";
-			int r = get_control_mode_as_string(mode, &mode_as_str);
-
-			if (r == SUCCESS) {
-				shell_fprintf(shell, SHELL_NORMAL, "mode: %s\n", mode_as_str);
-
-			} else {
-				shell_fprintf(shell, SHELL_ERROR,
-				"Conversion error, code: %d\n", ret);
-
-			}
-		break;
-		case (ERR_NOT_INITIALISED):
-			shell_fprintf(shell, SHELL_ERROR,
-				"driver not initialised, could't get mode!\n");
-
-		break;
-		default:
-			shell_fprintf(shell, SHELL_ERROR, "other error, code: %d\n", ret);
-		break;
-		}
-
-		return 0;
-	} else if (argc == 2) {
-		ret = get_control_mode_from_string(argv[1], &mode);
-		if (ret != SUCCESS) {
-			shell_fprintf(shell, SHELL_ERROR,
-				"Conversion error, errc: %d\n", ret);
-			return 0;
-		}
-
-		ret = mode_set(mode);
-		if (ret == SUCCESS) {
-			shell_fprintf(shell, SHELL_NORMAL, "mode set to: %s\n", argv[1]);
-
-		} else {
-			shell_fprintf(shell, SHELL_ERROR, "Error, code: %d\n", ret);
-		}
-	}
-	return 0;
-}
 
 static int cmd_actual_direction(const struct shell *shell, size_t argc, char *argv[])
 {
@@ -198,7 +149,6 @@ SHELL_SUBCMD_SET_END
 );
 
 SHELL_CMD_ARG_REGISTER(pos, &position_tree, "get/set position in deca-degree", cmd_position, 1, 1);
-SHELL_CMD_ARG_REGISTER(mode, NULL, "choose mode, pos/speed control. Default speed", cmd_mode, 1, 1);
 
 SHELL_CMD_REGISTER(actual_direction, NULL, "get motor actual spinning direction",
 		   cmd_actual_direction);
