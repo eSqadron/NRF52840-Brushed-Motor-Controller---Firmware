@@ -56,7 +56,15 @@ config KP_NUMERATOR_FOR_SPEED_IN_POS
 
 config KP_DENOMINATOR_FOR_SPEED_IN_POS
 	int "proportional part denominator for setting speed during position control"
-	default 100
+	default 50
+
+config KP_NUMERATOR_FOR_POS
+	int "proportional part numerator for setting speed during position control"
+	default 2
+
+config KP_DENOMINATOR_FOR_POS
+	int "proportional part denominator for setting speed during position control"
+	default 1
 
 config POSITION_CONTROL_MODIFIER
 	int "Accuracy of position control (if value is 10 position is controlled in deca-degrees; \
@@ -74,6 +82,10 @@ config POS_CONTROL_PRECISION_MODIFIER
 	int "divider for precision of position control.\
 	     Ex. 720 means that precision is 360/720 = +-0.5 degree"
 	default 720
+
+config POS_CONTROL_HISTERESIS_PERCENTAGE
+	int "Histeresis percentage of position control. For no histeresis, set to 100."
+	default 100
 
 
 config USB_DEVICE_VID

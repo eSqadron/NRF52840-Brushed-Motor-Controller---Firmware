@@ -17,6 +17,7 @@
 #define PINS_PER_CHANNEL 2
 
 #define FULL_SPIN_DEGREES (360u * CONFIG_POSITION_CONTROL_MODIFIER)
+#define HALF_SPIN_DEGREES (180u * CONFIG_POSITION_CONTROL_MODIFIER)
 
 #define MINIMUM_SPEED (CONFIG_SPEED_MAX_MRPM / CONFIG_MIN_SPEED_MODIFIER)
 
@@ -75,6 +76,9 @@ struct DriverChannel {
 	/// POSITION control
 	uint32_t curr_pos;
 	uint32_t target_position;
+	uint32_t target_speed_for_position_control;
+	bool target_achieved;
+	// bool target_achieved_prev_debug;
 
 	int32_t position_delta; //TEMP
 	// I think it can be turned into local variable only in method that uses it?
@@ -195,6 +199,9 @@ static void update_speed_and_position_continuous(struct k_work *work)
 						   )
 						  );
 
+				// TODO - currently, this p(id) is more aggresive if CONFIG_ENC_TIMER_PERIOD_MS is
+				// lower. Correct it, make P(ID) only time dependant, not "refresh rate" dependant!
+
 				// Cap control at max rpm speed,
 				// to avoid cumulation of too high speeds.
 				if (drv_chnls[chnl].speed_control > CONFIG_SPEED_MAX_MRPM) {
@@ -204,62 +211,69 @@ static void update_speed_and_position_continuous(struct k_work *work)
 				ret = speed_pwm_set(drv_chnls[chnl].speed_control, chnl);
 			} else if (control_mode == POSITION) {
 
-				// Difference from target position and actual position
-				drv_chnls[chnl].position_delta = drv_chnls[chnl].target_position -
-								 drv_chnls[chnl].curr_pos;
+				CALC_POSITION_DELTA(chnl)
 
-				// Check if motor should spin backward to get to the target
-				// (if target is smalller number than current position)
-				bool is_target_behind = false;
-				if (drv_chnls[chnl].position_delta < 0) {
-					drv_chnls[chnl].position_delta =
-					-drv_chnls[chnl].position_delta;
-					is_target_behind = true;
-				}
+				uint32_t delta_shortest_path = 0;
 
 				// Set proper spinning direction
-				if (drv_chnls[chnl].position_delta /
-					CONFIG_POSITION_CONTROL_MODIFIER
-						< 180) {
+				if (drv_chnls[chnl].position_delta < HALF_SPIN_DEGREES) {
 					// If target is closer that 180 degree
 
 					if (!is_target_behind)
 						set_direction_raw(FORWARD, chnl);
 					else
 						set_direction_raw(BACKWARD, chnl);
+
+					delta_shortest_path = drv_chnls[chnl].position_delta;
 				} else {
 					if (!is_target_behind)
 						set_direction_raw(BACKWARD, chnl);
 					else
 						set_direction_raw(FORWARD, chnl);
+
+					delta_shortest_path = FULL_SPIN_DEGREES -
+							      drv_chnls[chnl].position_delta;
 				}
 
-				if (drv_chnls[chnl].position_delta <=
-						(FULL_SPIN_DEGREES) /
-						(CONFIG_POS_CONTROL_PRECISION_MODIFIER)
-				    ||
-				    (FULL_SPIN_DEGREES - drv_chnls[chnl].position_delta) <=
-						(FULL_SPIN_DEGREES) /
-						(CONFIG_POS_CONTROL_PRECISION_MODIFIER)
-				   ) {
+				drv_chnls[chnl].target_achieved = is_target_achieved(chnl);
+
+				// if(drv_chnls[chnl].target_achieved != drv_chnls[chnl].target_achieved_prev_debug) {
+				// 	printk("ta changed from %d to %d",
+				// 		drv_chnls[chnl].target_achieved_prev_debug,
+				// 		drv_chnls[chnl].target_achieved);
+				// 	printk("shortest path: %d\n", delta_shortest_path);
+				// 	printk("range: %d\n", (FULL_SPIN_DEGREES) / (CONFIG_POS_CONTROL_PRECISION_MODIFIER));
+				// 	printk("range: %d\n", ((FULL_SPIN_DEGREES * CONFIG_POS_CONTROL_HISTERESIS_PERCENTAGE) /
+				// 			(CONFIG_POS_CONTROL_PRECISION_MODIFIER * 100))
+				// 	);
+				// }
+
+				// drv_chnls[chnl].target_achieved_prev_debug = drv_chnls[chnl].target_achieved;
+
+				if (drv_chnls[chnl].target_achieved) {
 					// if position_delta is small enough, or large enough that
 					// it is actually small "from other side"
 					drv_chnls[chnl].target_speed_mrpm = 0;
 				} else {
+					drv_chnls[chnl].target_speed_for_position_control =
+						CONFIG_KP_NUMERATOR_FOR_POS * delta_shortest_path /
+						CONFIG_KP_DENOMINATOR_FOR_POS;
+
+					drv_chnls[chnl].target_speed_mrpm =
+						drv_chnls[chnl].target_speed_mrpm +
+						CALC_SPEED_CONTROL_FOR_POS (
+							drv_chnls[chnl].
+								target_speed_for_position_control,
+							drv_chnls[chnl].actual_mrpm
+						);
+
 					if(drv_chnls[chnl].target_speed_mrpm < MINIMUM_SPEED) {
 
 						drv_chnls[chnl].target_speed_mrpm =
 							MINIMUM_SPEED;
 					}
-
-					// TODO - add actual PID! (instead of slow spinning!)
-					drv_chnls[chnl].target_speed_mrpm =
-						drv_chnls[chnl].target_speed_mrpm +
-						CALC_SPEED_CONTROL_FOR_POS (
-							MINIMUM_SPEED,
-							drv_chnls[chnl].actual_mrpm
-						);
 				}
+
 				ret_debug =
 					speed_pwm_set(drv_chnls[chnl].target_speed_mrpm, chnl);
 			}
@@ -274,14 +288,41 @@ static void continuous_calculation_timer_handler(struct k_timer *dummy)
 K_TIMER_DEFINE(continuous_calculation_timer, continuous_calculation_timer_handler, NULL);
 #pragma endregion TimerWorkCallback
 
+bool is_target_achieved(enum ChannelNumber chnl)
+{
+	uint32_t delta_shortest_path;
+
+	CALC_POSITION_DELTA(chnl)
+
+	if (drv_chnls[chnl].position_delta < HALF_SPIN_DEGREES) {
+		delta_shortest_path = drv_chnls[chnl].position_delta;
+	} else {
+		delta_shortest_path = ((int32_t)FULL_SPIN_DEGREES -
+					drv_chnls[chnl].position_delta);
+	}
+
+	if (drv_chnls[chnl].target_achieved) {
+		if (delta_shortest_path <=
+			(FULL_SPIN_DEGREES) / (CONFIG_POS_CONTROL_PRECISION_MODIFIER)) {
+			return true;
+		}
+	} else {
+		if (delta_shortest_path <=
+		    ((FULL_SPIN_DEGREES * CONFIG_POS_CONTROL_HISTERESIS_PERCENTAGE) /
+		     (CONFIG_POS_CONTROL_PRECISION_MODIFIER * 100))) {
+
+			return true;
+		}
+	}
+
+
+
+	return false;
+}
+
 // encoder functions
 static void enc_callback(enum ChannelNumber chnl, enum PinNumber pin)
 {
-	// TODO - maybe split this callback to two callbacks, for P1 and P0:
-	// what if motor is stuck and hitting one enc. from two directions?
-	// How will speed calculation behave if motor will keep changing position?
-	// (ex. when setting position?)
-
 	if (pin == P0) {
 		if (drv_chnls[chnl].prev_val_enc[P0] == drv_chnls[chnl].prev_val_enc[P1]) {
 			drv_chnls[chnl].count_cycles_bck += 1;
@@ -560,6 +601,9 @@ return_codes_t target_position_set(int32_t new_target_position, enum ChannelNumb
 	}
 
 	drv_chnls[chnl].target_position = (uint32_t)new_target_position;
+
+	drv_chnls[chnl].target_achieved = is_target_achieved(chnl);
+
 	return SUCCESS;
 }
 return_codes_t position_get(uint32_t *value, enum ChannelNumber chnl)
