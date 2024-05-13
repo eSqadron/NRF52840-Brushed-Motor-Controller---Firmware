@@ -18,6 +18,8 @@
 
 #define FULL_SPIN_DEGREES (360u * CONFIG_POSITION_CONTROL_MODIFIER)
 
+#define MINIMUM_SPEED (CONFIG_SPEED_MAX_MRPM / CONFIG_MIN_SPEED_MODIFIER)
+
 static const struct DriverVersion driver_ver = {
 	.major = 2,
 	.minor = 2,
@@ -244,21 +246,19 @@ static void update_speed_and_position_continuous(struct k_work *work)
 					// it is actually small "from other side"
 					drv_chnls[chnl].target_speed_mrpm = 0;
 				} else {
-					if(drv_chnls[chnl].target_speed_mrpm <
-					   CONFIG_POS_CONTROL_MIN_SPEED_MODIFIER) {
+					if(drv_chnls[chnl].target_speed_mrpm < MINIMUM_SPEED) {
 
 						drv_chnls[chnl].target_speed_mrpm =
-							CONFIG_POS_CONTROL_MIN_SPEED_MODIFIER;
+							MINIMUM_SPEED;
 					}
 
 					// TODO - add actual PID! (instead of slow spinning!)
 					drv_chnls[chnl].target_speed_mrpm =
 						drv_chnls[chnl].target_speed_mrpm +
-						CALC_SPEED_CONTROL(
-							CONFIG_SPEED_MAX_MRPM /
-							CONFIG_POS_CONTROL_MIN_SPEED_MODIFIER,
+						CALC_SPEED_CONTROL_FOR_POS (
+							MINIMUM_SPEED,
 							drv_chnls[chnl].actual_mrpm
-						)/10;
+						);
 				}
 				ret_debug =
 					speed_pwm_set(drv_chnls[chnl].target_speed_mrpm, chnl);
@@ -496,7 +496,7 @@ static int speed_pwm_set(uint32_t value, enum ChannelNumber chnl)
 		return ERR_DESIRED_VALUE_TO_HIGH;
 	}
 
-	if (drv_chnls[chnl].target_speed_mrpm < CONFIG_POS_CONTROL_MIN_SPEED_MODIFIER) {
+	if (drv_chnls[chnl].target_speed_mrpm < MINIMUM_SPEED) {
 		value = 0;
 		drv_chnls[chnl].speed_control = 0;
 	}
