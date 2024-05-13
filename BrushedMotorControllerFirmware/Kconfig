@@ -50,15 +50,25 @@ config KP_DENOMINATOR_FOR_SPEED
 	int "proportional part denominator for speed control"
 	default 10
 
+config KP_NUMERATOR_FOR_SPEED_IN_POS
+	int "proportional part numerator for setting speed during position control"
+	default 4
+
+config KP_DENOMINATOR_FOR_SPEED_IN_POS
+	int "proportional part denominator for setting speed during position control"
+	default 100
+
 config POSITION_CONTROL_MODIFIER
 	int "Accuracy of position control (if value is 10 position is controlled in deca-degrees; \
 	     if 100 - centi-degrees etc.)"
 	default 100
 
-config POS_CONTROL_MIN_SPEED_MODIFIER
-	int "divider for minimal speed during position control. \
-	     Max speed is taken and divied by this value"
-	default 16
+config MIN_SPEED_MODIFIER
+	int "divider for minimal speed. \
+	     Max speed is taken and divied by this value \
+	     used as minimum RPM value that can be set, RPMs lower than that will be treated as \
+	     zero. Also, it is used as minimum speed during position control."
+	default 28
 
 config POS_CONTROL_PRECISION_MODIFIER
 	int "divider for precision of position control.\
