@@ -39,7 +39,6 @@ enum PinNumber {
 	P1
 };
 
-
 /// @brief Function initalising PWMs (drivers) and GPIOs.
 /// @param speed_max_mrpm - max speed defined in mili RPM
 void init_pwm_motor_driver(void);
@@ -98,6 +97,8 @@ return_codes_t get_control_mode_from_string(char *str_control_mode, enum Control
 return_codes_t get_control_mode_as_string(enum ControlModes control_mode, char **ret_value);
 
 return_codes_t target_position_set(int32_t new_target_position, enum ChannelNumber chnl);
+
+bool is_target_achieved(enum ChannelNumber chnl);
 
 return_codes_t position_get(uint32_t *value, enum ChannelNumber chnl);
 
