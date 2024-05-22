@@ -1,0 +1,15 @@
+menu "Serial Shell Configuration"
+
+config UART_SHELL_SUPPORT
+	bool "Support for communication using uart shell - set to one to communicate via shell \
+	      over uart, 0 for disabled communication"
+	default y
+
+config USB_DEVICE_VID
+	default 0x1915
+	depends on UART_SHELL_SUPPORT
+
+config USB_DEVICE_PID
+	default 0x0000
+	depends on UART_SHELL_SUPPORT
+endmenu

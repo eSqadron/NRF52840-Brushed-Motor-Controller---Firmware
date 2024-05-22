@@ -1,0 +1,21 @@
+menu "Bluetooth Configuration"
+
+config BT_SUPPORT
+	bool "bool value, 1 if BLE is supposed to be supported, 0 if not"
+	select BT
+	select BT_SMP
+	select BT_PERIPHERAL
+	select BT_DIS
+	select BT_DIS_PNP
+	default y
+
+config BT_DEVICE_NAME
+	string "BLE device name"
+	default "Motor Controller"
+	depends on BT_SUPPORT
+
+config BT_DEVICE_APPEARANCE
+	default 833
+	depends on BT_SUPPORT
+
+endmenu

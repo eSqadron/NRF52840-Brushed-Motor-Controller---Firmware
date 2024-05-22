@@ -1,0 +1,7 @@
+menu "Templates Configuration"
+
+config TEMPLATE_NAME_SIZE
+	int "Max size of template's name in characters"
+	default 12
+
+endmenu
