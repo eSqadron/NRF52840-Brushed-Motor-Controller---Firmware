@@ -1,0 +1,22 @@
+menu "Motor Configuration"
+
+config GEARSHIFT_RATIO
+	int "Gearshift ratio of attached motor"
+	default 150
+
+config ENC_STEPS_PER_ROTATION
+	int "Number of encoder steps per one full rotation"
+	default 64
+
+config SPEED_MAX_MRPM
+	int "Max motor speed from motor documentation (in mili RPM - one thousands of RPM)"
+	default 67000
+
+config MIN_SPEED_MODIFIER
+	int "divider for minimal speed. \
+	     Max speed is taken and divied by this value \
+	     used as minimum RPM value that can be set, RPMs lower than that will be treated as \
+	     zero. Also, it is used as minimum speed during position control."
+	default 28
+
+endmenu
