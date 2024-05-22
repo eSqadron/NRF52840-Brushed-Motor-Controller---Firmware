@@ -76,7 +76,7 @@ struct DriverChannel {
 	/// POSITION control
 	uint32_t curr_pos;
 	uint32_t target_position;
-	uint32_t target_speed_for_position_control;
+	uint32_t target_speed_for_pos_cntrl;
 	bool target_achieved;
 	// bool target_achieved_prev_debug;
 
@@ -199,8 +199,8 @@ static void update_speed_and_position_continuous(struct k_work *work)
 						   )
 						  );
 
-				// TODO - currently, this p(id) is more aggresive if CONFIG_ENC_TIMER_PERIOD_MS is
-				// lower. Correct it, make P(ID) only time dependant, not "refresh rate" dependant!
+	// TODO - currently, this p(id) is more aggresive if CONFIG_ENC_TIMER_PERIOD_MS is
+	// lower. Correct it, make P(ID) only time dependent, not "refresh rate" dependent!
 
 				// Cap control at max rpm speed,
 				// to avoid cumulation of too high speeds.
@@ -237,37 +237,23 @@ static void update_speed_and_position_continuous(struct k_work *work)
 
 				drv_chnls[chnl].target_achieved = is_target_achieved(chnl);
 
-				// if(drv_chnls[chnl].target_achieved != drv_chnls[chnl].target_achieved_prev_debug) {
-				// 	printk("ta changed from %d to %d",
-				// 		drv_chnls[chnl].target_achieved_prev_debug,
-				// 		drv_chnls[chnl].target_achieved);
-				// 	printk("shortest path: %d\n", delta_shortest_path);
-				// 	printk("range: %d\n", (FULL_SPIN_DEGREES) / (CONFIG_POS_CONTROL_PRECISION_MODIFIER));
-				// 	printk("range: %d\n", ((FULL_SPIN_DEGREES * CONFIG_POS_CONTROL_HISTERESIS_PERCENTAGE) /
-				// 			(CONFIG_POS_CONTROL_PRECISION_MODIFIER * 100))
-				// 	);
-				// }
-
-				// drv_chnls[chnl].target_achieved_prev_debug = drv_chnls[chnl].target_achieved;
-
 				if (drv_chnls[chnl].target_achieved) {
 					// if position_delta is small enough, or large enough that
 					// it is actually small "from other side"
 					drv_chnls[chnl].target_speed_mrpm = 0;
 				} else {
-					drv_chnls[chnl].target_speed_for_position_control =
+					drv_chnls[chnl].target_speed_for_pos_cntrl =
 						CONFIG_KP_NUMERATOR_FOR_POS * delta_shortest_path /
 						CONFIG_KP_DENOMINATOR_FOR_POS;
 
 					drv_chnls[chnl].target_speed_mrpm =
 						drv_chnls[chnl].target_speed_mrpm +
-						CALC_SPEED_CONTROL_FOR_POS (
-							drv_chnls[chnl].
-								target_speed_for_position_control,
+						CALC_SPEED_CONTROL_FOR_POS(
+							drv_chnls[chnl].target_speed_for_pos_cntrl,
 							drv_chnls[chnl].actual_mrpm
 						);
 
-					if(drv_chnls[chnl].target_speed_mrpm < MINIMUM_SPEED) {
+					if (drv_chnls[chnl].target_speed_mrpm < MINIMUM_SPEED) {
 
 						drv_chnls[chnl].target_speed_mrpm =
 							MINIMUM_SPEED;
@@ -308,8 +294,8 @@ bool is_target_achieved(enum ChannelNumber chnl)
 		}
 	} else {
 		if (delta_shortest_path <=
-		    ((FULL_SPIN_DEGREES * CONFIG_POS_CONTROL_HISTERESIS_PERCENTAGE) /
-		     (CONFIG_POS_CONTROL_PRECISION_MODIFIER * 100))) {
+		   ((FULL_SPIN_DEGREES * CONFIG_POS_CONTROL_HISTERESIS_PERCENTAGE) /
+		    (CONFIG_POS_CONTROL_PRECISION_MODIFIER * 100))) {
 
 			return true;
 		}
@@ -612,7 +598,7 @@ return_codes_t position_get(uint32_t *value, enum ChannelNumber chnl)
 		return ERR_NOT_INITIALISED;
 	}
 
-	if(drv_chnls[chnl].curr_pos == FULL_SPIN_DEGREES) {
+	if (drv_chnls[chnl].curr_pos == FULL_SPIN_DEGREES) {
 		// TODO - remove this when continuus update will treat 360 as 0 as it should!
 		*value = 0u;
 		return SUCCESS;

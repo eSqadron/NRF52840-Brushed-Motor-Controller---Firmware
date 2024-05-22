@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2024 Maciej Baczmanski, Jakub Mazur
+
 #if defined(CONFIG_UART_SHELL_SUPPORT)
 
 #include <zephyr/kernel.h>
@@ -45,6 +48,7 @@ static int cmd_mode(const struct shell *shell, size_t argc, char *argv[])
 static int cmd_mode_pos(const struct shell *shell, size_t argc, char *argv[])
 {
 	return_codes_t ret = mode_set(POSITION);
+
 	if (ret == SUCCESS) {
 		shell_fprintf(shell, SHELL_NORMAL, "mode set to: %s\n", argv[0]);
 
@@ -57,6 +61,7 @@ static int cmd_mode_pos(const struct shell *shell, size_t argc, char *argv[])
 static int cmd_mode_speed(const struct shell *shell, size_t argc, char *argv[])
 {
 	return_codes_t ret = mode_set(SPEED);
+
 	if (ret == SUCCESS) {
 		shell_fprintf(shell, SHELL_NORMAL, "mode set to: %s\n", argv[0]);
 
