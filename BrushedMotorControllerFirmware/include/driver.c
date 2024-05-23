@@ -258,6 +258,12 @@ static void update_speed_and_position_continuous(struct k_work *work)
 						drv_chnls[chnl].target_speed_mrpm =
 							MINIMUM_SPEED;
 					}
+
+					if (drv_chnls[chnl].target_speed_mrpm > CONFIG_SPEED_MAX_MRPM) {
+
+						drv_chnls[chnl].target_speed_mrpm =
+							CONFIG_SPEED_MAX_MRPM;
+					}
 				}
 
 				ret_debug =
@@ -664,12 +670,12 @@ return_codes_t get_control_mode_as_string(enum ControlModes control_mode, char *
 #pragma region DebugFunctions
 uint64_t get_cycles_count_DEBUG(void)
 {
-	return drv_chnls[CH0].count_cycles_fwd;
+	return drv_chnls[CH1].target_speed_for_pos_cntrl;
 }
 
 uint64_t get_time_cycles_count_DEBUG(void)
 {
-	return count_timer;
+	return drv_chnls[CH1].target_speed_mrpm;
 }
 
 int32_t get_ret_DEBUG(void)
@@ -679,17 +685,17 @@ int32_t get_ret_DEBUG(void)
 
 uint32_t get_calc_speed_DEBUG(void)
 {
-	return drv_chnls[CH0].speed_control;
+	return drv_chnls[CH1].speed_control;
 }
 
 uint32_t get_target_pos_DEBUG(void)
 {
-	return drv_chnls[CH0].target_position;
+	return drv_chnls[CH1].target_position;
 }
 
 int32_t get_pos_d_DEBUG(void)
 {
-	return drv_chnls[CH0].position_delta;
+	return drv_chnls[CH1].position_delta;
 }
 #pragma endregion DebugFunctions
 
