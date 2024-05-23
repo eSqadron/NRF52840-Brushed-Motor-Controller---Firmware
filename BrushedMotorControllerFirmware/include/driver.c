@@ -246,6 +246,11 @@ static void update_speed_and_position_continuous(struct k_work *work)
 						CONFIG_KP_NUMERATOR_FOR_POS * delta_shortest_path /
 						CONFIG_KP_DENOMINATOR_FOR_POS;
 
+					if (drv_chnls[chnl].target_speed_for_pos_cntrl < MINIMUM_SPEED) {
+						drv_chnls[chnl].target_speed_for_pos_cntrl =
+							MINIMUM_SPEED;
+					}
+
 					drv_chnls[chnl].target_speed_mrpm =
 						drv_chnls[chnl].target_speed_mrpm +
 						CALC_SPEED_CONTROL_FOR_POS(
@@ -254,13 +259,11 @@ static void update_speed_and_position_continuous(struct k_work *work)
 						);
 
 					if (drv_chnls[chnl].target_speed_mrpm < MINIMUM_SPEED) {
-
 						drv_chnls[chnl].target_speed_mrpm =
 							MINIMUM_SPEED;
 					}
 
 					if (drv_chnls[chnl].target_speed_mrpm > CONFIG_SPEED_MAX_MRPM) {
-
 						drv_chnls[chnl].target_speed_mrpm =
 							CONFIG_SPEED_MAX_MRPM;
 					}
