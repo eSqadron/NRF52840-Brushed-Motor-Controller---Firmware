@@ -242,28 +242,49 @@ static void update_speed_and_position_continuous(struct k_work *work)
 					// it is actually small "from other side"
 					drv_chnls[chnl].target_speed_mrpm = 0;
 				} else {
+				// Calculate target speed based on the distance from the
+				// target position
 					drv_chnls[chnl].target_speed_for_pos_cntrl =
 						CONFIG_KP_NUMERATOR_FOR_POS * delta_shortest_path /
 						CONFIG_KP_DENOMINATOR_FOR_POS;
 
-					if (drv_chnls[chnl].target_speed_for_pos_cntrl < MINIMUM_SPEED) {
+					if (drv_chnls[chnl].target_speed_for_pos_cntrl <
+					    MINIMUM_SPEED) {
 						drv_chnls[chnl].target_speed_for_pos_cntrl =
 							MINIMUM_SPEED;
 					}
+#if !defined(CONFIG_POS_SOFT_START)
+					if (drv_chnls[chnl].target_speed_mrpm == 0) {
+					// Initialise speed. If motor is starting, set speed
+					// to initial speed.
+						drv_chnls[chnl].target_speed_mrpm =
+							drv_chnls[chnl].target_speed_for_pos_cntrl;
+					} else {
+					// Otherwise, if motor is already spinning, then only adjust
+					// the speed
+#endif
 
-					drv_chnls[chnl].target_speed_mrpm =
-						drv_chnls[chnl].target_speed_mrpm +
-						CALC_SPEED_CONTROL_FOR_POS(
-							drv_chnls[chnl].target_speed_for_pos_cntrl,
-							drv_chnls[chnl].actual_mrpm
-						);
+						// If motor is having trouble keeping the speed,
+						// or distance has changed
+						drv_chnls[chnl].target_speed_mrpm =
+						    drv_chnls[chnl].target_speed_mrpm +
+						    CALC_SPEED_CONTROL_FOR_POS(
+							 drv_chnls[chnl].target_speed_for_pos_cntrl,
+							 drv_chnls[chnl].actual_mrpm
+						    );
+#if !defined(CONFIG_POS_SOFT_START)
+					}
+#endif
 
-					if (drv_chnls[chnl].target_speed_mrpm < MINIMUM_SPEED) {
+					// Cap the control in range:
+					if (drv_chnls[chnl].target_speed_mrpm <
+						MINIMUM_SPEED) {
 						drv_chnls[chnl].target_speed_mrpm =
 							MINIMUM_SPEED;
 					}
 
-					if (drv_chnls[chnl].target_speed_mrpm > CONFIG_SPEED_MAX_MRPM) {
+					if (drv_chnls[chnl].target_speed_mrpm >
+						CONFIG_SPEED_MAX_MRPM) {
 						drv_chnls[chnl].target_speed_mrpm =
 							CONFIG_SPEED_MAX_MRPM;
 					}
@@ -581,12 +602,6 @@ uint32_t get_current_max_speed(void)
 
 return_codes_t target_position_set(int32_t new_target_position, enum ChannelNumber chnl)
 {
-	// Wrap target position to range 0-360 degree
-	new_target_position = new_target_position % (int32_t)FULL_SPIN_DEGREES;
-	new_target_position = (new_target_position < 0) ?
-					(FULL_SPIN_DEGREES + new_target_position) :
-					new_target_position;
-
 	if (!drv_initialised) {
 		return ERR_NOT_INITIALISED;
 	}
@@ -595,9 +610,19 @@ return_codes_t target_position_set(int32_t new_target_position, enum ChannelNumb
 		return ERR_UNSUPPORTED_FUNCTION_IN_CURRENT_MODE;
 	}
 
+	// Wrap target position to range 0-360 degree
+	new_target_position = new_target_position % (int32_t)FULL_SPIN_DEGREES;
+	new_target_position = (new_target_position < 0) ?
+					(FULL_SPIN_DEGREES + new_target_position) :
+					new_target_position;
+
 	drv_chnls[chnl].target_position = (uint32_t)new_target_position;
 
 	drv_chnls[chnl].target_achieved = is_target_achieved(chnl);
+
+	drv_chnls[chnl].target_speed_for_pos_cntrl = 0;
+	drv_chnls[chnl].target_speed_mrpm = 0;
+
 
 	return SUCCESS;
 }
