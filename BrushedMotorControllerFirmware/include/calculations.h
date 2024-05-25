@@ -3,6 +3,8 @@
  * Copyright (c) 2024 Maciej Baczmanski, Jakub Mazur
  */
 
+#define FULL_SPIN_DEGREES (360u * CONFIG_POSITION_CONTROL_MODIFIER)
+#define HALF_SPIN_DEGREES (180u * CONFIG_POSITION_CONTROL_MODIFIER)
 
 struct PID_def {
 	const uint32_t Kp_numerator;
@@ -93,3 +95,27 @@ static inline int32_t calculate_pid(int32_t target_speed, int32_t actual_speed, 
 {
 	return calculate_pid_from_error(ERR_C(target_speed, actual_speed), pid);
 }
+
+
+/*
+Unit replacement - interrupt counter to degrees
+*/
+#define INTERRUPT_COUNT_TO_DEG_DIFF(diff) \
+	(int32_t)((diff*(int32_t)FULL_SPIN_DEGREES) /\
+	 (CONFIG_ENC_STEPS_PER_ROTATION * CONFIG_GEARSHIFT_RATIO))
+
+/*
+Calculate new position (int32_t) based on:
+- previous position (drv_chnls[chnl].curr_pos, uint32_t)
+- position difference (in degrees, int32_t)
+- position difference modifier (int8_t, 1 or -1) - describes which way was the motor spinning
+*/
+#define CALC_NEW_POS(pos_diff_in_deg, pos_diff_modifier, chnl) \
+	((int32_t)drv_chnls[chnl].curr_pos + pos_diff_modifier * pos_diff_in_deg)
+
+/*
+Wrap position to range 0-360 degree
+*/
+#define WRAP_POS_TO_RANGE(new_pos) \
+	(uint32_t)((new_pos % (int32_t)FULL_SPIN_DEGREES) + \
+		   ((new_pos < 0) ? (int32_t)FULL_SPIN_DEGREES : 0))

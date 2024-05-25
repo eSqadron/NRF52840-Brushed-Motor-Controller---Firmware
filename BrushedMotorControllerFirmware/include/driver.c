@@ -16,9 +16,6 @@
 
 #define PINS_PER_CHANNEL 2
 
-#define FULL_SPIN_DEGREES (360u * CONFIG_POSITION_CONTROL_MODIFIER)
-#define HALF_SPIN_DEGREES (180u * CONFIG_POSITION_CONTROL_MODIFIER)
-
 #define MINIMUM_SPEED (CONFIG_SPEED_MAX_MRPM / CONFIG_MIN_SPEED_MODIFIER)
 
 static const struct DriverVersion driver_ver = {
@@ -141,6 +138,7 @@ static void update_speed_and_position_continuous(struct k_work *work)
 	uint64_t diff_fwd = 0;
 	uint64_t diff_bck = 0;
 	uint64_t diff = 0;
+	int8_t pos_diff_modifier = 1;
 
 	for (enum ChannelNumber chnl = 0; chnl < CONFIG_SUPPORTED_CHANNEL_NUMBER; ++chnl) {
 		count_timer += 1; // debug only
@@ -164,7 +162,7 @@ static void update_speed_and_position_continuous(struct k_work *work)
 		drv_chnls[chnl].old_count_cycles_bck = drv_chnls[chnl].count_cycles_bck;
 
 		// Modifier, whether motor moved forward (1) or backward (-1)
-		int8_t pos_diff_modifier = 1;
+		pos_diff_modifier = 1;
 
 		if (diff_fwd > diff_bck) {
 			diff = diff_fwd - diff_bck;
@@ -178,16 +176,16 @@ static void update_speed_and_position_continuous(struct k_work *work)
 			drv_chnls[chnl].actual_dir = STOPPED;
 		}
 
-		// calculate actual position
 		int32_t pos_diff = (diff*FULL_SPIN_DEGREES) /
 				   (CONFIG_ENC_STEPS_PER_ROTATION * CONFIG_GEARSHIFT_RATIO);
-		int32_t new_pos = (int32_t)drv_chnls[chnl].curr_pos + pos_diff_modifier * pos_diff;
 
-		if (new_pos <= 0) {
-			drv_chnls[chnl].curr_pos = (uint32_t)(FULL_SPIN_DEGREES + new_pos);
-		} else {
-			drv_chnls[chnl].curr_pos = ((uint32_t)new_pos) % (FULL_SPIN_DEGREES);
-		}
+		// calculate actual position
+		drv_chnls[chnl].curr_pos = WRAP_POS_TO_RANGE(
+						CALC_NEW_POS(
+							INTERRUPT_COUNT_TO_DEG_DIFF(diff),
+							pos_diff_modifier,
+							chnl)
+						);
 
 		if (drv_chnls[chnl].curr_pos == FULL_SPIN_DEGREES) {
 			// TODO - why this doesn't work? 360 still appears sometimes!
@@ -627,13 +625,7 @@ return_codes_t target_position_set(int32_t new_target_position, enum ChannelNumb
 		return ERR_UNSUPPORTED_FUNCTION_IN_CURRENT_MODE;
 	}
 
-	// Wrap target position to range 0-360 degree
-	new_target_position = new_target_position % (int32_t)FULL_SPIN_DEGREES;
-	new_target_position = (new_target_position < 0) ?
-					(FULL_SPIN_DEGREES + new_target_position) :
-					new_target_position;
-
-	drv_chnls[chnl].target_position = (uint32_t)new_target_position;
+	drv_chnls[chnl].target_position = WRAP_POS_TO_RANGE(new_target_position);
 
 	drv_chnls[chnl].target_achieved = is_target_achieved(chnl);
 
