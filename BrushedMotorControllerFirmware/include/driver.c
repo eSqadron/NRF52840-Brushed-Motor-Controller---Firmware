@@ -119,6 +119,21 @@ void enter_boot(void)
 }
 #endif
 
+// Difference from target position and actual position
+static inline void calculate_pos_delta(enum ChannelNumber chnl, bool *is_target_behind)
+{
+	drv_chnls[chnl].position_delta = drv_chnls[chnl].target_position -
+					 drv_chnls[chnl].curr_pos;
+	// Check if motor should spin backward to get to the target
+	// (if target is smalller number than current position)
+	if (drv_chnls[chnl].position_delta < 0) {
+		drv_chnls[chnl].position_delta =
+		-drv_chnls[chnl].position_delta;
+		if(is_target_behind != NULL)
+			*is_target_behind = true;
+	}
+}
+
 // function implementations:
 #pragma region TimerWorkCallback // timer interrupt internal functions
 static void update_speed_and_position_continuous(struct k_work *work)
@@ -211,8 +226,8 @@ static void update_speed_and_position_continuous(struct k_work *work)
 
 				ret = speed_pwm_set(drv_chnls[chnl].speed_control, chnl);
 			} else if (control_mode == POSITION) {
-
-				CALC_POSITION_DELTA(chnl)
+				bool is_target_behind = false;
+				calculate_pos_delta(chnl, &is_target_behind);
 
 				uint32_t delta_shortest_path = 0;
 
@@ -310,7 +325,7 @@ bool is_target_achieved(enum ChannelNumber chnl)
 {
 	uint32_t delta_shortest_path;
 
-	CALC_POSITION_DELTA(chnl)
+	calculate_pos_delta(chnl, NULL);
 
 	if (drv_chnls[chnl].position_delta < HALF_SPIN_DEGREES) {
 		delta_shortest_path = drv_chnls[chnl].position_delta;

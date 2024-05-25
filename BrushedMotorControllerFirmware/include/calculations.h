@@ -93,16 +93,3 @@ static inline int32_t calculate_pid(int32_t target_speed, int32_t actual_speed, 
 {
 	return calculate_pid_from_error(ERR_C(target_speed, actual_speed), pid);
 }
-
-// Difference from target position and actual position
-#define CALC_POSITION_DELTA(chnl) \
-	drv_chnls[chnl].position_delta = drv_chnls[chnl].target_position - \
-					 drv_chnls[chnl].curr_pos; \
-	bool is_target_behind = false; \
-	if (drv_chnls[chnl].position_delta < 0) { \
-		drv_chnls[chnl].position_delta = \
-		-drv_chnls[chnl].position_delta; \
-		is_target_behind = true; \
-	} \
-// Check if motor should spin backward to get to the target
-// (if target is smalller number than current position)
