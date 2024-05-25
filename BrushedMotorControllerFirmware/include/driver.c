@@ -193,9 +193,10 @@ static void update_speed_and_position_continuous(struct k_work *work)
 				// increase or decrese speed each iteration by Kp * speed_delta
 				drv_chnls[chnl].speed_control =
 					(uint32_t)(drv_chnls[chnl].speed_control +
-						   CALC_SPEED_CONTROL(
+						   calculate_pid(
 							drv_chnls[chnl].target_speed_mrpm,
-							drv_chnls[chnl].actual_mrpm
+							drv_chnls[chnl].actual_mrpm,
+							&PID_spd
 						   )
 						  );
 
@@ -244,9 +245,9 @@ static void update_speed_and_position_continuous(struct k_work *work)
 				} else {
 				// Calculate target speed based on the distance from the
 				// target position
+					int32_t temp = calculate_pid_from_error(delta_shortest_path, &PID_pos);
 					drv_chnls[chnl].target_speed_for_pos_cntrl =
-						CONFIG_KP_NUMERATOR_FOR_POS * delta_shortest_path /
-						CONFIG_KP_DENOMINATOR_FOR_POS;
+						(uint32_t)(temp >=0 ? temp : 0u);
 
 					if (drv_chnls[chnl].target_speed_for_pos_cntrl <
 					    MINIMUM_SPEED) {
@@ -268,9 +269,10 @@ static void update_speed_and_position_continuous(struct k_work *work)
 						// or distance has changed
 						drv_chnls[chnl].target_speed_mrpm =
 						    drv_chnls[chnl].target_speed_mrpm +
-						    CALC_SPEED_CONTROL_FOR_POS(
+						    calculate_pid(
 							 drv_chnls[chnl].target_speed_for_pos_cntrl,
-							 drv_chnls[chnl].actual_mrpm
+							 drv_chnls[chnl].actual_mrpm,
+							 &PID_spd_for_pos
 						    );
 #if !defined(CONFIG_POS_SOFT_START)
 					}
