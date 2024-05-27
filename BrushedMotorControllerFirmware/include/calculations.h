@@ -3,8 +3,8 @@
  * Copyright (c) 2024 Maciej Baczmanski, Jakub Mazur
  */
 
-#define FULL_SPIN_DEGREES (360u * CONFIG_POSITION_CONTROL_MODIFIER)
-#define HALF_SPIN_DEGREES (180u * CONFIG_POSITION_CONTROL_MODIFIER)
+#define DEGREES_PER_ROTATION (360u * CONFIG_POSITION_CONTROL_MODIFIER)
+#define DEGREES_PER_HALF_ROTATION (180u * CONFIG_POSITION_CONTROL_MODIFIER)
 
 struct PID_def {
 	const uint32_t Kp_numerator;
@@ -101,7 +101,7 @@ static inline int32_t calculate_pid(int32_t target_speed, int32_t actual_speed, 
 Unit replacement - interrupt counter to degrees
 */
 #define INTERRUPT_COUNT_TO_DEG_DIFF(diff) \
-	(int32_t)((diff*(int32_t)FULL_SPIN_DEGREES) /\
+	(int32_t)((diff*(int32_t)DEGREES_PER_ROTATION) /\
 	 (CONFIG_ENC_STEPS_PER_ROTATION * CONFIG_GEARSHIFT_RATIO))
 
 /*
@@ -117,5 +117,5 @@ Calculate new position (int32_t) based on:
 Wrap position to range 0-360 degree
 */
 #define WRAP_POS_TO_RANGE(new_pos) \
-	(uint32_t)((new_pos % (int32_t)FULL_SPIN_DEGREES) + \
-		   ((new_pos < 0) ? (int32_t)FULL_SPIN_DEGREES : 0))
+	(uint32_t)((new_pos % (int32_t)DEGREES_PER_ROTATION) + \
+		   ((new_pos < 0) ? (int32_t)DEGREES_PER_ROTATION : 0))

@@ -176,7 +176,7 @@ static void update_speed_and_position_continuous(struct k_work *work)
 			drv_chnls[chnl].actual_dir = STOPPED;
 		}
 
-		int32_t pos_diff = (diff*FULL_SPIN_DEGREES) /
+		int32_t pos_diff = (diff*DEGREES_PER_ROTATION) /
 				   (CONFIG_ENC_STEPS_PER_ROTATION * CONFIG_GEARSHIFT_RATIO);
 
 		// calculate actual position
@@ -187,7 +187,7 @@ static void update_speed_and_position_continuous(struct k_work *work)
 							chnl)
 						);
 
-		if (drv_chnls[chnl].curr_pos == FULL_SPIN_DEGREES) {
+		if (drv_chnls[chnl].curr_pos == DEGREES_PER_ROTATION) {
 			// TODO - why this doesn't work? 360 still appears sometimes!
 			drv_chnls[chnl].curr_pos = 0u;
 		}
@@ -230,7 +230,7 @@ static void update_speed_and_position_continuous(struct k_work *work)
 				uint32_t delta_shortest_path = 0;
 
 				// Set proper spinning direction
-				if (drv_chnls[chnl].position_delta < HALF_SPIN_DEGREES) {
+				if (drv_chnls[chnl].position_delta < DEGREES_PER_HALF_ROTATION) {
 					// If target is closer that 180 degree
 
 					if (!is_target_behind)
@@ -245,7 +245,7 @@ static void update_speed_and_position_continuous(struct k_work *work)
 					else
 						set_direction_raw(FORWARD, chnl);
 
-					delta_shortest_path = FULL_SPIN_DEGREES -
+					delta_shortest_path = DEGREES_PER_ROTATION -
 							      drv_chnls[chnl].position_delta;
 				}
 
@@ -325,21 +325,21 @@ bool is_target_achieved(enum ChannelNumber chnl)
 
 	calculate_pos_delta(chnl, NULL);
 
-	if (drv_chnls[chnl].position_delta < HALF_SPIN_DEGREES) {
+	if (drv_chnls[chnl].position_delta < DEGREES_PER_HALF_ROTATION) {
 		delta_shortest_path = drv_chnls[chnl].position_delta;
 	} else {
-		delta_shortest_path = ((int32_t)FULL_SPIN_DEGREES -
+		delta_shortest_path = ((int32_t)DEGREES_PER_ROTATION -
 					drv_chnls[chnl].position_delta);
 	}
 
 	if (drv_chnls[chnl].target_achieved) {
 		if (delta_shortest_path <=
-			(FULL_SPIN_DEGREES) / (CONFIG_POS_CONTROL_PRECISION_MODIFIER)) {
+			(DEGREES_PER_ROTATION) / (CONFIG_POS_CONTROL_PRECISION_MODIFIER)) {
 			return true;
 		}
 	} else {
 		if (delta_shortest_path <=
-		   ((FULL_SPIN_DEGREES * CONFIG_POS_CONTROL_HISTERESIS_PERCENTAGE) /
+		   ((DEGREES_PER_ROTATION * CONFIG_POS_CONTROL_HISTERESIS_PERCENTAGE) /
 		    (CONFIG_POS_CONTROL_PRECISION_MODIFIER * 100))) {
 
 			return true;
@@ -641,7 +641,7 @@ return_codes_t position_get(uint32_t *value, enum ChannelNumber chnl)
 		return ERR_NOT_INITIALISED;
 	}
 
-	if (drv_chnls[chnl].curr_pos == FULL_SPIN_DEGREES) {
+	if (drv_chnls[chnl].curr_pos == DEGREES_PER_ROTATION) {
 		// TODO - remove this when continuus update will treat 360 as 0 as it should!
 		*value = 0u;
 		return SUCCESS;
