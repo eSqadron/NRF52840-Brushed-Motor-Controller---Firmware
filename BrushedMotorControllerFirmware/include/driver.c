@@ -123,7 +123,7 @@ static inline void calculate_pos_delta(enum ChannelNumber chnl, bool *is_target_
 	if (drv_chnls[chnl].position_delta < 0) {
 		drv_chnls[chnl].position_delta =
 		-drv_chnls[chnl].position_delta;
-		if(is_target_behind != NULL)
+		if (is_target_behind != NULL)
 			*is_target_behind = true;
 	}
 }
@@ -194,9 +194,9 @@ static void update_speed_and_position_continuous(struct k_work *work)
 				ret = speed_pwm_set(drv_chnls[chnl].speed_control, chnl);
 			} else if (control_mode == POSITION) {
 				bool is_target_behind = false;
-				calculate_pos_delta(chnl, &is_target_behind);
-
 				uint32_t delta_shortest_path = 0;
+
+				calculate_pos_delta(chnl, &is_target_behind);
 
 				// Set proper spinning direction
 				if (drv_chnls[chnl].position_delta < DEGREES_PER_HALF_ROTATION) {
@@ -227,9 +227,11 @@ static void update_speed_and_position_continuous(struct k_work *work)
 				} else {
 				// Calculate target speed based on the distance from the
 				// target position
-					int32_t temp = calculate_pid_from_error(delta_shortest_path, &PID_pos);
+					int32_t temp = calculate_pid_from_error(delta_shortest_path,
+										&PID_pos);
+
 					drv_chnls[chnl].target_speed_for_pos_cntrl =
-						(uint32_t)(temp >=0 ? temp : 0u);
+						(uint32_t)(temp >= 0 ? temp : 0u);
 
 					if (drv_chnls[chnl].target_speed_for_pos_cntrl <
 					    MINIMUM_SPEED) {

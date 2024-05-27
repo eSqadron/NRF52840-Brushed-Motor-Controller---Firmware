@@ -81,8 +81,10 @@ static inline int32_t calculate_pid_from_error(int32_t error, struct PID_def *pi
 	int32_t P = ((int32_t)(((int32_t)pid->Kp_numerator * error) /
 				(int32_t)pid->Kp_denominator));
 	pid->i_temp = pid->i_temp + error;
-	if(pid->i_temp < pid->i_min) pid->i_temp = pid->i_min;
-	if(pid->i_temp < pid->i_max) pid->i_temp = pid->i_max;
+	if (pid->i_temp < pid->i_min)
+		pid->i_temp = pid->i_min;
+	if (pid->i_temp < pid->i_max)
+		pid->i_temp = pid->i_max;
 	int32_t I = ((int32_t)((int32_t)pid->Ki_numerator * pid->i_temp /
 			       (int32_t)pid->Ki_denominator));
 	int32_t D = ((int32_t)((int32_t)pid->Kd_numerator * (int32_t)(pid->d_temp - error) /
@@ -97,25 +99,18 @@ static inline int32_t calculate_pid(int32_t target_speed, int32_t actual_speed, 
 }
 
 
-/*
-Unit replacement - interrupt counter to degrees
-*/
+/// Unit replacement - interrupt counter to degrees
 #define INTERRUPT_COUNT_TO_DEG_DIFF(diff) \
 	(int32_t)((diff*(int32_t)DEGREES_PER_ROTATION) /\
 		  (CONFIG_ENC_STEPS_PER_ROTATION * CONFIG_GEARSHIFT_RATIO))
 
-/*
-Calculate new position (int32_t) based on:
-- previous position (drv_chnls[chnl].curr_pos, uint32_t)
-- position difference (in degrees, int32_t)
-- position difference modifier (int8_t, 1 or -1) - describes which way was the motor spinning
-*/
+/// Calculate new position (int32_t) based on:
+/// - previous position (drv_chnls[chnl].curr_pos, uint32_t)
+/// - position difference (in degrees, int32_t)
 #define CALC_NEW_POS(pos_diff_in_deg, chnl) \
 	(int32_t)(((int32_t)drv_chnls[chnl].curr_pos) + pos_diff_in_deg)
 
-/*
-Wrap position to range 0-360 degree
-*/
+/// Wrap position to range 0-360 degree
 #define WRAP_POS_TO_RANGE(new_pos) \
 	(uint32_t)((new_pos % (int32_t)DEGREES_PER_ROTATION) + \
 		   ((new_pos < 0) ? (int32_t)DEGREES_PER_ROTATION : 0))
