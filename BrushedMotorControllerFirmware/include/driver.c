@@ -5,6 +5,7 @@
 #include <zephyr/drivers/pwm.h>
 #include <zephyr/types.h>
 #include <string.h>
+#include <stdlib.h>
 #include "return_codes.h"
 #include "driver.h"
 
@@ -15,9 +16,6 @@
 #define RPM_TO_MRPM 1000
 
 #define PINS_PER_CHANNEL 2
-
-#define FULL_SPIN_DEGREES (360u * CONFIG_POSITION_CONTROL_MODIFIER)
-#define HALF_SPIN_DEGREES (180u * CONFIG_POSITION_CONTROL_MODIFIER)
 
 #define MINIMUM_SPEED (CONFIG_SPEED_MAX_MRPM / CONFIG_MIN_SPEED_MODIFIER)
 
@@ -59,11 +57,8 @@ struct DriverChannel {
 	/// ENCODER - variables used for actual speed calculation based on encoder pin and
 	// timer interrupts
 	// TODO - mutex locking instead of volatile?
-	uint64_t count_cycles_fwd;
-	uint64_t old_count_cycles_fwd;
-
-	uint64_t count_cycles_bck;
-	uint64_t old_count_cycles_bck;
+	int64_t count_cycles;
+	int64_t old_count_cycles;
 
 	/// SPEED control
 	uint32_t target_speed_mrpm;// Target set by user
@@ -119,68 +114,56 @@ void enter_boot(void)
 }
 #endif
 
+// Difference from target position and actual position
+static inline void calculate_pos_delta(enum ChannelNumber chnl, bool *is_target_behind)
+{
+	drv_chnls[chnl].position_delta = drv_chnls[chnl].target_position -
+					 drv_chnls[chnl].curr_pos;
+	// Check if motor should spin backward to get to the target
+	// (if target is smalller number than current position)
+	if (drv_chnls[chnl].position_delta < 0) {
+		drv_chnls[chnl].position_delta =
+		-drv_chnls[chnl].position_delta;
+		if (is_target_behind != NULL)
+			*is_target_behind = true;
+	}
+}
+
 // function implementations:
 #pragma region TimerWorkCallback // timer interrupt internal functions
 static void update_speed_and_position_continuous(struct k_work *work)
 {
-	uint64_t diff_fwd = 0;
-	uint64_t diff_bck = 0;
-	uint64_t diff = 0;
+	int64_t diff = 0;
 
 	for (enum ChannelNumber chnl = 0; chnl < CONFIG_SUPPORTED_CHANNEL_NUMBER; ++chnl) {
 		count_timer += 1; // debug only
 
 		// count encoder interrupts between timer interrupts:
-		if (drv_chnls[chnl].count_cycles_fwd > drv_chnls[chnl].old_count_cycles_fwd) {
-			diff_fwd = drv_chnls[chnl].count_cycles_fwd -
-				   drv_chnls[chnl].old_count_cycles_fwd;
-		} else {
-			diff_fwd = 0;
-		}
+		diff = drv_chnls[chnl].count_cycles - drv_chnls[chnl].old_count_cycles;
+		// if diff is positive, motor is going FWD, else, BCK
 
-		if (drv_chnls[chnl].count_cycles_bck > drv_chnls[chnl].old_count_cycles_bck) {
-			diff_bck = drv_chnls[chnl].count_cycles_bck -
-				   drv_chnls[chnl].old_count_cycles_bck;
-		} else {
-			diff_bck = 0;
-		}
+		// TODO - add some possibility to "wrap" around int64 limit!
 
-		drv_chnls[chnl].old_count_cycles_fwd = drv_chnls[chnl].count_cycles_fwd;
-		drv_chnls[chnl].old_count_cycles_bck = drv_chnls[chnl].count_cycles_bck;
+		drv_chnls[chnl].old_count_cycles = drv_chnls[chnl].count_cycles;
 
-		// Modifier, whether motor moved forward (1) or backward (-1)
-		int8_t pos_diff_modifier = 1;
 
-		if (diff_fwd > diff_bck) {
-			diff = diff_fwd - diff_bck;
+		if (diff > 0) {
 			drv_chnls[chnl].actual_dir = FORWARD;
-		} else if (diff_fwd < diff_bck) {
-			diff = diff_bck - diff_fwd;
+		} else if (diff < 0) {
 			drv_chnls[chnl].actual_dir = BACKWARD;
-			pos_diff_modifier = -1;
 		} else {
-			diff = 0;
 			drv_chnls[chnl].actual_dir = STOPPED;
 		}
 
 		// calculate actual position
-		int32_t pos_diff = (diff*FULL_SPIN_DEGREES) /
-				   (CONFIG_ENC_STEPS_PER_ROTATION * CONFIG_GEARSHIFT_RATIO);
-		int32_t new_pos = (int32_t)drv_chnls[chnl].curr_pos + pos_diff_modifier * pos_diff;
-
-		if (new_pos <= 0) {
-			drv_chnls[chnl].curr_pos = (uint32_t)(FULL_SPIN_DEGREES + new_pos);
-		} else {
-			drv_chnls[chnl].curr_pos = ((uint32_t)new_pos) % (FULL_SPIN_DEGREES);
-		}
-
-		if (drv_chnls[chnl].curr_pos == FULL_SPIN_DEGREES) {
-			// TODO - why this doesn't work? 360 still appears sometimes!
-			drv_chnls[chnl].curr_pos = 0u;
-		}
+		drv_chnls[chnl].curr_pos = WRAP_POS_TO_RANGE(
+						CALC_NEW_POS(
+							INTERRUPT_COUNT_TO_DEG_DIFF(diff),
+							chnl)
+						);
 
 		// calculate actual speed
-		drv_chnls[chnl].actual_mrpm = RPM_TO_MRPM * MIN_TO_MS * diff /
+		drv_chnls[chnl].actual_mrpm = RPM_TO_MRPM * MIN_TO_MS * ((uint64_t)llabs(diff)) /
 			(CONFIG_ENC_STEPS_PER_ROTATION *
 			CONFIG_GEARSHIFT_RATIO *
 			CONFIG_ENC_TIMER_PERIOD_MS);
@@ -193,9 +176,10 @@ static void update_speed_and_position_continuous(struct k_work *work)
 				// increase or decrese speed each iteration by Kp * speed_delta
 				drv_chnls[chnl].speed_control =
 					(uint32_t)(drv_chnls[chnl].speed_control +
-						   CALC_SPEED_CONTROL(
+						   calculate_pid(
 							drv_chnls[chnl].target_speed_mrpm,
-							drv_chnls[chnl].actual_mrpm
+							drv_chnls[chnl].actual_mrpm,
+							&PID_spd
 						   )
 						  );
 
@@ -210,13 +194,13 @@ static void update_speed_and_position_continuous(struct k_work *work)
 
 				ret = speed_pwm_set(drv_chnls[chnl].speed_control, chnl);
 			} else if (control_mode == POSITION) {
-
-				CALC_POSITION_DELTA(chnl)
-
+				bool is_target_behind = false;
 				uint32_t delta_shortest_path = 0;
 
+				calculate_pos_delta(chnl, &is_target_behind);
+
 				// Set proper spinning direction
-				if (drv_chnls[chnl].position_delta < HALF_SPIN_DEGREES) {
+				if (drv_chnls[chnl].position_delta < DEGREES_PER_HALF_ROTATION) {
 					// If target is closer that 180 degree
 
 					if (!is_target_behind)
@@ -231,7 +215,7 @@ static void update_speed_and_position_continuous(struct k_work *work)
 					else
 						set_direction_raw(FORWARD, chnl);
 
-					delta_shortest_path = FULL_SPIN_DEGREES -
+					delta_shortest_path = DEGREES_PER_ROTATION -
 							      drv_chnls[chnl].position_delta;
 				}
 
@@ -242,21 +226,54 @@ static void update_speed_and_position_continuous(struct k_work *work)
 					// it is actually small "from other side"
 					drv_chnls[chnl].target_speed_mrpm = 0;
 				} else {
+				// Calculate target speed based on the distance from the
+				// target position
+					int32_t temp = calculate_pid_from_error(delta_shortest_path,
+										&PID_pos);
+
 					drv_chnls[chnl].target_speed_for_pos_cntrl =
-						CONFIG_KP_NUMERATOR_FOR_POS * delta_shortest_path /
-						CONFIG_KP_DENOMINATOR_FOR_POS;
+						(uint32_t)(temp >= 0 ? temp : 0u);
 
-					drv_chnls[chnl].target_speed_mrpm =
-						drv_chnls[chnl].target_speed_mrpm +
-						CALC_SPEED_CONTROL_FOR_POS(
-							drv_chnls[chnl].target_speed_for_pos_cntrl,
-							drv_chnls[chnl].actual_mrpm
-						);
+					if (drv_chnls[chnl].target_speed_for_pos_cntrl <
+					    MINIMUM_SPEED) {
+						drv_chnls[chnl].target_speed_for_pos_cntrl =
+							MINIMUM_SPEED;
+					}
+#if !defined(CONFIG_POS_SOFT_START)
+					if (drv_chnls[chnl].target_speed_mrpm == 0) {
+					// Initialise speed. If motor is starting, set speed
+					// to initial speed.
+						drv_chnls[chnl].target_speed_mrpm =
+							drv_chnls[chnl].target_speed_for_pos_cntrl;
+					} else {
+					// Otherwise, if motor is already spinning, then only adjust
+					// the speed
+#endif
 
-					if (drv_chnls[chnl].target_speed_mrpm < MINIMUM_SPEED) {
+						// If motor is having trouble keeping the speed,
+						// or distance has changed
+						drv_chnls[chnl].target_speed_mrpm =
+						    drv_chnls[chnl].target_speed_mrpm +
+						    calculate_pid(
+							 drv_chnls[chnl].target_speed_for_pos_cntrl,
+							 drv_chnls[chnl].actual_mrpm,
+							 &PID_spd_for_pos
+						    );
+#if !defined(CONFIG_POS_SOFT_START)
+					}
+#endif
 
+					// Cap the control in range:
+					if (drv_chnls[chnl].target_speed_mrpm <
+						MINIMUM_SPEED) {
 						drv_chnls[chnl].target_speed_mrpm =
 							MINIMUM_SPEED;
+					}
+
+					if (drv_chnls[chnl].target_speed_mrpm >
+						CONFIG_SPEED_MAX_MRPM) {
+						drv_chnls[chnl].target_speed_mrpm =
+							CONFIG_SPEED_MAX_MRPM;
 					}
 				}
 
@@ -278,30 +295,30 @@ bool is_target_achieved(enum ChannelNumber chnl)
 {
 	uint32_t delta_shortest_path;
 
-	CALC_POSITION_DELTA(chnl)
+	calculate_pos_delta(chnl, NULL);
 
-	if (drv_chnls[chnl].position_delta < HALF_SPIN_DEGREES) {
+	if (drv_chnls[chnl].position_delta < DEGREES_PER_HALF_ROTATION) {
 		delta_shortest_path = drv_chnls[chnl].position_delta;
 	} else {
-		delta_shortest_path = ((int32_t)FULL_SPIN_DEGREES -
+		delta_shortest_path = ((int32_t)DEGREES_PER_ROTATION -
 					drv_chnls[chnl].position_delta);
 	}
 
-	if (drv_chnls[chnl].target_achieved) {
-		if (delta_shortest_path <=
-			(FULL_SPIN_DEGREES) / (CONFIG_POS_CONTROL_PRECISION_MODIFIER)) {
-			return true;
-		}
-	} else {
-		if (delta_shortest_path <=
-		   ((FULL_SPIN_DEGREES * CONFIG_POS_CONTROL_HISTERESIS_PERCENTAGE) /
-		    (CONFIG_POS_CONTROL_PRECISION_MODIFIER * 100))) {
+	// Range with histeresis is narrower by some percentage, so it can be checked first
+	if (delta_shortest_path <=
+		((DEGREES_PER_ROTATION * CONFIG_POS_CONTROL_HISTERESIS_PERCENTAGE) /
+		(CONFIG_POS_CONTROL_PRECISION_MODIFIER * 100))) {
 
-			return true;
-		}
+		return true;
 	}
 
-
+	// Ring between range with histeresis (narrower) and regular range (wider) is accepted only
+	// if target was already previously achieved!
+	if (drv_chnls[chnl].target_achieved &&
+	    (delta_shortest_path <=
+			(DEGREES_PER_ROTATION) / (CONFIG_POS_CONTROL_PRECISION_MODIFIER))) {
+		return true;
+	}
 
 	return false;
 }
@@ -311,15 +328,15 @@ static void enc_callback(enum ChannelNumber chnl, enum PinNumber pin)
 {
 	if (pin == P0) {
 		if (drv_chnls[chnl].prev_val_enc[P0] == drv_chnls[chnl].prev_val_enc[P1]) {
-			drv_chnls[chnl].count_cycles_bck += 1;
+			drv_chnls[chnl].count_cycles--;
 		} else {
-			drv_chnls[chnl].count_cycles_fwd += 1;
+			drv_chnls[chnl].count_cycles++;
 		}
 	} else if (pin == P1) {
 		if (drv_chnls[chnl].prev_val_enc[P0] == drv_chnls[chnl].prev_val_enc[P1]) {
-			drv_chnls[chnl].count_cycles_fwd += 1;
+			drv_chnls[chnl].count_cycles++;
 		} else {
-			drv_chnls[chnl].count_cycles_bck += 1;
+			drv_chnls[chnl].count_cycles--;
 		}
 	}
 }
@@ -429,11 +446,8 @@ return_codes_t motor_on(enum MotorDirection direction, enum ChannelNumber chnl)
 
 	drv_chnls[chnl].speed_control = 0;
 
-	drv_chnls[chnl].count_cycles_fwd = 0;
-	drv_chnls[chnl].old_count_cycles_fwd = 0;
-
-	drv_chnls[chnl].count_cycles_bck = 0;
-	drv_chnls[chnl].old_count_cycles_bck = 0;
+	drv_chnls[chnl].count_cycles = 0;
+	drv_chnls[chnl].old_count_cycles = 0;
 
 	ret = set_direction_raw(direction, chnl);
 
@@ -545,11 +559,9 @@ return_codes_t target_speed_set(uint32_t value, enum ChannelNumber chnl)
 	}
 	drv_chnls[chnl].target_speed_mrpm = value;
 
-	drv_chnls[chnl].count_cycles_fwd = 0;
-	drv_chnls[chnl].old_count_cycles_fwd = 0;
+	drv_chnls[chnl].count_cycles = 0;
+	drv_chnls[chnl].old_count_cycles = 0;
 
-	drv_chnls[chnl].count_cycles_bck = 0;
-	drv_chnls[chnl].old_count_cycles_bck = 0;
 	return SUCCESS;
 }
 return_codes_t speed_get(enum ChannelNumber chnl, uint32_t *value)
@@ -572,12 +584,6 @@ uint32_t get_current_max_speed(void)
 
 return_codes_t target_position_set(int32_t new_target_position, enum ChannelNumber chnl)
 {
-	// Wrap target position to range 0-360 degree
-	new_target_position = new_target_position % (int32_t)FULL_SPIN_DEGREES;
-	new_target_position = (new_target_position < 0) ?
-					(FULL_SPIN_DEGREES + new_target_position) :
-					new_target_position;
-
 	if (!drv_initialised) {
 		return ERR_NOT_INITIALISED;
 	}
@@ -586,9 +592,13 @@ return_codes_t target_position_set(int32_t new_target_position, enum ChannelNumb
 		return ERR_UNSUPPORTED_FUNCTION_IN_CURRENT_MODE;
 	}
 
-	drv_chnls[chnl].target_position = (uint32_t)new_target_position;
+	drv_chnls[chnl].target_position = WRAP_POS_TO_RANGE(new_target_position);
 
 	drv_chnls[chnl].target_achieved = is_target_achieved(chnl);
+
+	drv_chnls[chnl].target_speed_for_pos_cntrl = 0;
+	drv_chnls[chnl].target_speed_mrpm = 0;
+
 
 	return SUCCESS;
 }
@@ -598,7 +608,7 @@ return_codes_t position_get(uint32_t *value, enum ChannelNumber chnl)
 		return ERR_NOT_INITIALISED;
 	}
 
-	if (drv_chnls[chnl].curr_pos == FULL_SPIN_DEGREES) {
+	if (drv_chnls[chnl].curr_pos == DEGREES_PER_ROTATION) {
 		// TODO - remove this when continuus update will treat 360 as 0 as it should!
 		*value = 0u;
 		return SUCCESS;
@@ -647,29 +657,15 @@ return_codes_t position_reset_zero(enum ChannelNumber chnl)
 	return SUCCESS;
 }
 
-return_codes_t get_control_mode_as_string(enum ControlModes control_mode, char **ret_value)
-{
-	static const char * const modes_names[] = {
-		[SPEED] = "Speed",
-		[POSITION] = "Position"
-	};
-
-	// TODO - add some range check
-
-	*ret_value = modes_names[control_mode];
-
-	return SUCCESS;
-}
-
 #pragma region DebugFunctions
 uint64_t get_cycles_count_DEBUG(void)
 {
-	return drv_chnls[CH0].count_cycles_fwd;
+	return drv_chnls[CH0].target_speed_for_pos_cntrl;
 }
 
 uint64_t get_time_cycles_count_DEBUG(void)
 {
-	return count_timer;
+	return drv_chnls[CH0].target_speed_mrpm;
 }
 
 int32_t get_ret_DEBUG(void)

@@ -17,17 +17,8 @@ static int cmd_mode(const struct shell *shell, size_t argc, char *argv[])
 		ret = mode_get(&mode);
 		switch (ret) {
 		case (SUCCESS):
-			char *mode_as_str = "";
-			int r = get_control_mode_as_string(mode, &mode_as_str);
+			shell_fprintf(shell, SHELL_NORMAL, "mode: %s\n", mode_names[mode]);
 
-			if (r == SUCCESS) {
-				shell_fprintf(shell, SHELL_NORMAL, "mode: %s\n", mode_as_str);
-
-			} else {
-				shell_fprintf(shell, SHELL_ERROR,
-				"Conversion error, code: %d\n", ret);
-
-			}
 		break;
 		case (ERR_NOT_INITIALISED):
 			shell_fprintf(shell, SHELL_ERROR,

@@ -30,4 +30,9 @@ config POS_CONTROL_HISTERESIS_PERCENTAGE
 	int "Histeresis percentage of position control. For no histeresis, set to 100."
 	default 100
 
+config POS_SOFT_START
+	bool "Speed during position control will incrementally start from zero. If false,\
+	will immediately start from given speed."
+	default y
+
 endmenu
