@@ -21,6 +21,11 @@ enum ControlModes {
 	POSITION
 };
 
+static const char * const modes_names[] = {
+	[SPEED] = "Speed",
+	[POSITION] = "Position"
+};
+
 /// @brief struct representing current software version
 struct DriverVersion {
 	uint8_t major;

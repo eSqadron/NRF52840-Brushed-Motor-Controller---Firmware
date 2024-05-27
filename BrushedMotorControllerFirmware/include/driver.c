@@ -656,20 +656,6 @@ return_codes_t position_reset_zero(enum ChannelNumber chnl)
 	return SUCCESS;
 }
 
-return_codes_t get_control_mode_as_string(enum ControlModes control_mode, char **ret_value)
-{
-	static const char * const modes_names[] = {
-		[SPEED] = "Speed",
-		[POSITION] = "Position"
-	};
-
-	// TODO - add some range check
-
-	*ret_value = modes_names[control_mode];
-
-	return SUCCESS;
-}
-
 #pragma region DebugFunctions
 uint64_t get_cycles_count_DEBUG(void)
 {
