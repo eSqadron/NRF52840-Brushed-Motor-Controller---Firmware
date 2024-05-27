@@ -102,7 +102,7 @@ Unit replacement - interrupt counter to degrees
 */
 #define INTERRUPT_COUNT_TO_DEG_DIFF(diff) \
 	(int32_t)((diff*(int32_t)DEGREES_PER_ROTATION) /\
-	 (CONFIG_ENC_STEPS_PER_ROTATION * CONFIG_GEARSHIFT_RATIO))
+		  (CONFIG_ENC_STEPS_PER_ROTATION * CONFIG_GEARSHIFT_RATIO))
 
 /*
 Calculate new position (int32_t) based on:
@@ -110,8 +110,8 @@ Calculate new position (int32_t) based on:
 - position difference (in degrees, int32_t)
 - position difference modifier (int8_t, 1 or -1) - describes which way was the motor spinning
 */
-#define CALC_NEW_POS(pos_diff_in_deg, pos_diff_modifier, chnl) \
-	((int32_t)drv_chnls[chnl].curr_pos + pos_diff_modifier * pos_diff_in_deg)
+#define CALC_NEW_POS(pos_diff_in_deg, chnl) \
+	(int32_t)(((int32_t)drv_chnls[chnl].curr_pos) + pos_diff_in_deg)
 
 /*
 Wrap position to range 0-360 degree
@@ -119,3 +119,5 @@ Wrap position to range 0-360 degree
 #define WRAP_POS_TO_RANGE(new_pos) \
 	(uint32_t)((new_pos % (int32_t)DEGREES_PER_ROTATION) + \
 		   ((new_pos < 0) ? (int32_t)DEGREES_PER_ROTATION : 0))
+
+#define ABS(v) (v < 0 ? -v : v)

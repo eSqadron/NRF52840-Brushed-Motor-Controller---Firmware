@@ -56,11 +56,8 @@ struct DriverChannel {
 	/// ENCODER - variables used for actual speed calculation based on encoder pin and
 	// timer interrupts
 	// TODO - mutex locking instead of volatile?
-	uint64_t count_cycles_fwd;
-	uint64_t old_count_cycles_fwd;
-
-	uint64_t count_cycles_bck;
-	uint64_t old_count_cycles_bck;
+	int64_t count_cycles;
+	int64_t old_count_cycles;
 
 	/// SPEED control
 	uint32_t target_speed_mrpm;// Target set by user
@@ -135,65 +132,37 @@ static inline void calculate_pos_delta(enum ChannelNumber chnl, bool *is_target_
 #pragma region TimerWorkCallback // timer interrupt internal functions
 static void update_speed_and_position_continuous(struct k_work *work)
 {
-	uint64_t diff_fwd = 0;
-	uint64_t diff_bck = 0;
-	uint64_t diff = 0;
-	int8_t pos_diff_modifier = 1;
+	int64_t diff = 0;
 
 	for (enum ChannelNumber chnl = 0; chnl < CONFIG_SUPPORTED_CHANNEL_NUMBER; ++chnl) {
 		count_timer += 1; // debug only
 
 		// count encoder interrupts between timer interrupts:
-		if (drv_chnls[chnl].count_cycles_fwd > drv_chnls[chnl].old_count_cycles_fwd) {
-			diff_fwd = drv_chnls[chnl].count_cycles_fwd -
-				   drv_chnls[chnl].old_count_cycles_fwd;
-		} else {
-			diff_fwd = 0;
-		}
+		diff = drv_chnls[chnl].count_cycles - drv_chnls[chnl].old_count_cycles;
+		// if diff is positive, motor is going FWD, else, BCK
 
-		if (drv_chnls[chnl].count_cycles_bck > drv_chnls[chnl].old_count_cycles_bck) {
-			diff_bck = drv_chnls[chnl].count_cycles_bck -
-				   drv_chnls[chnl].old_count_cycles_bck;
-		} else {
-			diff_bck = 0;
-		}
+		// TODO - add some possibility to "wrap" around int64 limit!
 
-		drv_chnls[chnl].old_count_cycles_fwd = drv_chnls[chnl].count_cycles_fwd;
-		drv_chnls[chnl].old_count_cycles_bck = drv_chnls[chnl].count_cycles_bck;
+		drv_chnls[chnl].old_count_cycles = drv_chnls[chnl].count_cycles;
 
-		// Modifier, whether motor moved forward (1) or backward (-1)
-		pos_diff_modifier = 1;
 
-		if (diff_fwd > diff_bck) {
-			diff = diff_fwd - diff_bck;
+		if (diff > 0) {
 			drv_chnls[chnl].actual_dir = FORWARD;
-		} else if (diff_fwd < diff_bck) {
-			diff = diff_bck - diff_fwd;
+		} else if (diff < 0) {
 			drv_chnls[chnl].actual_dir = BACKWARD;
-			pos_diff_modifier = -1;
 		} else {
-			diff = 0;
 			drv_chnls[chnl].actual_dir = STOPPED;
 		}
-
-		int32_t pos_diff = (diff*DEGREES_PER_ROTATION) /
-				   (CONFIG_ENC_STEPS_PER_ROTATION * CONFIG_GEARSHIFT_RATIO);
 
 		// calculate actual position
 		drv_chnls[chnl].curr_pos = WRAP_POS_TO_RANGE(
 						CALC_NEW_POS(
 							INTERRUPT_COUNT_TO_DEG_DIFF(diff),
-							pos_diff_modifier,
 							chnl)
 						);
 
-		if (drv_chnls[chnl].curr_pos == DEGREES_PER_ROTATION) {
-			// TODO - why this doesn't work? 360 still appears sometimes!
-			drv_chnls[chnl].curr_pos = 0u;
-		}
-
 		// calculate actual speed
-		drv_chnls[chnl].actual_mrpm = RPM_TO_MRPM * MIN_TO_MS * diff /
+		drv_chnls[chnl].actual_mrpm = RPM_TO_MRPM * MIN_TO_MS * ((uint64_t)ABS(diff)) /
 			(CONFIG_ENC_STEPS_PER_ROTATION *
 			CONFIG_GEARSHIFT_RATIO *
 			CONFIG_ENC_TIMER_PERIOD_MS);
@@ -356,15 +325,15 @@ static void enc_callback(enum ChannelNumber chnl, enum PinNumber pin)
 {
 	if (pin == P0) {
 		if (drv_chnls[chnl].prev_val_enc[P0] == drv_chnls[chnl].prev_val_enc[P1]) {
-			drv_chnls[chnl].count_cycles_bck += 1;
+			drv_chnls[chnl].count_cycles--;
 		} else {
-			drv_chnls[chnl].count_cycles_fwd += 1;
+			drv_chnls[chnl].count_cycles++;
 		}
 	} else if (pin == P1) {
 		if (drv_chnls[chnl].prev_val_enc[P0] == drv_chnls[chnl].prev_val_enc[P1]) {
-			drv_chnls[chnl].count_cycles_fwd += 1;
+			drv_chnls[chnl].count_cycles++;
 		} else {
-			drv_chnls[chnl].count_cycles_bck += 1;
+			drv_chnls[chnl].count_cycles--;
 		}
 	}
 }
@@ -474,11 +443,8 @@ return_codes_t motor_on(enum MotorDirection direction, enum ChannelNumber chnl)
 
 	drv_chnls[chnl].speed_control = 0;
 
-	drv_chnls[chnl].count_cycles_fwd = 0;
-	drv_chnls[chnl].old_count_cycles_fwd = 0;
-
-	drv_chnls[chnl].count_cycles_bck = 0;
-	drv_chnls[chnl].old_count_cycles_bck = 0;
+	drv_chnls[chnl].count_cycles = 0;
+	drv_chnls[chnl].old_count_cycles = 0;
 
 	ret = set_direction_raw(direction, chnl);
 
@@ -590,11 +556,9 @@ return_codes_t target_speed_set(uint32_t value, enum ChannelNumber chnl)
 	}
 	drv_chnls[chnl].target_speed_mrpm = value;
 
-	drv_chnls[chnl].count_cycles_fwd = 0;
-	drv_chnls[chnl].old_count_cycles_fwd = 0;
+	drv_chnls[chnl].count_cycles = 0;
+	drv_chnls[chnl].old_count_cycles = 0;
 
-	drv_chnls[chnl].count_cycles_bck = 0;
-	drv_chnls[chnl].old_count_cycles_bck = 0;
 	return SUCCESS;
 }
 return_codes_t speed_get(enum ChannelNumber chnl, uint32_t *value)
@@ -707,12 +671,12 @@ return_codes_t get_control_mode_as_string(enum ControlModes control_mode, char *
 #pragma region DebugFunctions
 uint64_t get_cycles_count_DEBUG(void)
 {
-	return drv_chnls[CH1].target_speed_for_pos_cntrl;
+	return drv_chnls[CH0].target_speed_for_pos_cntrl;
 }
 
 uint64_t get_time_cycles_count_DEBUG(void)
 {
-	return drv_chnls[CH1].target_speed_mrpm;
+	return drv_chnls[CH0].target_speed_mrpm;
 }
 
 int32_t get_ret_DEBUG(void)
@@ -722,17 +686,17 @@ int32_t get_ret_DEBUG(void)
 
 uint32_t get_calc_speed_DEBUG(void)
 {
-	return drv_chnls[CH1].speed_control;
+	return drv_chnls[CH0].speed_control;
 }
 
 uint32_t get_target_pos_DEBUG(void)
 {
-	return drv_chnls[CH1].target_position;
+	return drv_chnls[CH0].target_position;
 }
 
 int32_t get_pos_d_DEBUG(void)
 {
-	return drv_chnls[CH1].position_delta;
+	return drv_chnls[CH0].position_delta;
 }
 #pragma endregion DebugFunctions
 
