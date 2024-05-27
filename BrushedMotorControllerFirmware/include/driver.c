@@ -301,21 +301,21 @@ bool is_target_achieved(enum ChannelNumber chnl)
 					drv_chnls[chnl].position_delta);
 	}
 
-	if (drv_chnls[chnl].target_achieved) {
-		if (delta_shortest_path <=
-			(DEGREES_PER_ROTATION) / (CONFIG_POS_CONTROL_PRECISION_MODIFIER)) {
-			return true;
-		}
-	} else {
-		if (delta_shortest_path <=
-		   ((DEGREES_PER_ROTATION * CONFIG_POS_CONTROL_HISTERESIS_PERCENTAGE) /
-		    (CONFIG_POS_CONTROL_PRECISION_MODIFIER * 100))) {
+	// Range with histeresis is narrower by some percentage, so it can be checked first
+	if (delta_shortest_path <=
+		((DEGREES_PER_ROTATION * CONFIG_POS_CONTROL_HISTERESIS_PERCENTAGE) /
+		(CONFIG_POS_CONTROL_PRECISION_MODIFIER * 100))) {
 
-			return true;
-		}
+		return true;
 	}
 
-
+	// Ring between range with histeresis (narrower) and regular range (wider) is accepted only
+	// if target was already previously achieved!
+	if (drv_chnls[chnl].target_achieved &&
+	    (delta_shortest_path <=
+			(DEGREES_PER_ROTATION) / (CONFIG_POS_CONTROL_PRECISION_MODIFIER))) {
+		return true;
+	}
 
 	return false;
 }
