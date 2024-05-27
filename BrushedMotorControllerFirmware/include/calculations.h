@@ -74,8 +74,6 @@ struct PID_def PID_pos = {
 	.i_max = 500,
 };
 
-#define ERR_C(target_speed, actual_speed) (int32_t)(target_speed - actual_speed)
-
 static inline int32_t calculate_pid_from_error(int32_t error, struct PID_def *pid)
 {
 	int32_t P = ((int32_t)(((int32_t)pid->Kp_numerator * error) /
@@ -95,7 +93,7 @@ static inline int32_t calculate_pid_from_error(int32_t error, struct PID_def *pi
 
 static inline int32_t calculate_pid(int32_t target_speed, int32_t actual_speed, struct PID_def *pid)
 {
-	return calculate_pid_from_error(ERR_C(target_speed, actual_speed), pid);
+	return calculate_pid_from_error((int32_t)(target_speed - actual_speed), pid);
 }
 
 
@@ -114,5 +112,3 @@ static inline int32_t calculate_pid(int32_t target_speed, int32_t actual_speed, 
 #define WRAP_POS_TO_RANGE(new_pos) \
 	(uint32_t)((new_pos % (int32_t)DEGREES_PER_ROTATION) + \
 		   ((new_pos < 0) ? (int32_t)DEGREES_PER_ROTATION : 0))
-
-#define ABS(v) (v < 0 ? -v : v)

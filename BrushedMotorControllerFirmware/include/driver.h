@@ -21,7 +21,7 @@ enum ControlModes {
 	POSITION
 };
 
-static const char * const modes_names[] = {
+static const char * const mode_names[] = {
 	[SPEED] = "Speed",
 	[POSITION] = "Position"
 };

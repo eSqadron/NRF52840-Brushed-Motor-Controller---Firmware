@@ -5,6 +5,7 @@
 #include <zephyr/drivers/pwm.h>
 #include <zephyr/types.h>
 #include <string.h>
+#include <stdlib.h>
 #include "return_codes.h"
 #include "driver.h"
 
@@ -162,7 +163,7 @@ static void update_speed_and_position_continuous(struct k_work *work)
 						);
 
 		// calculate actual speed
-		drv_chnls[chnl].actual_mrpm = RPM_TO_MRPM * MIN_TO_MS * ((uint64_t)ABS(diff)) /
+		drv_chnls[chnl].actual_mrpm = RPM_TO_MRPM * MIN_TO_MS * ((uint64_t)llabs(diff)) /
 			(CONFIG_ENC_STEPS_PER_ROTATION *
 			CONFIG_GEARSHIFT_RATIO *
 			CONFIG_ENC_TIMER_PERIOD_MS);

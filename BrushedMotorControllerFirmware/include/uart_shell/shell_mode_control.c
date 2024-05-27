@@ -17,7 +17,7 @@ static int cmd_mode(const struct shell *shell, size_t argc, char *argv[])
 		ret = mode_get(&mode);
 		switch (ret) {
 		case (SUCCESS):
-			shell_fprintf(shell, SHELL_NORMAL, "mode: %s\n", modes_names[mode]);
+			shell_fprintf(shell, SHELL_NORMAL, "mode: %s\n", mode_names[mode]);
 
 		break;
 		case (ERR_NOT_INITIALISED):
