@@ -13,6 +13,7 @@ typedef enum {
 	ERR_TOO_MANY_TEMPLATES_DEFINED = 3,
 	ERR_COULDNT_FIND_TEMPLATE = 4,
 	ERR_EMPTY_TEMPLATE_LIST = 5,
+	ERR_MOTOR_SHOULD_BE_STATIONARY = 5,
 
 	// Critical errors (16+) - Are result of serious hardware issue
 	ERR_NOT_INITIALISED = 16,
