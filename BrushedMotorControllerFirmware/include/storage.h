@@ -2,7 +2,7 @@
  *
  * Copyright (c) 2024 Maciej Baczmanski, Jakub Mazur
  */
-
+#if defined(CONFIG_TEMPLATES_ENABLE)
 #include "return_codes.h"
 
 // TODO - make template scallable from KConfig
@@ -30,3 +30,4 @@ return_codes_t set_current_template(char *name);
 
 int get_errno_error_code(void);
 unsigned int get_errno_error_line(void);
+#endif

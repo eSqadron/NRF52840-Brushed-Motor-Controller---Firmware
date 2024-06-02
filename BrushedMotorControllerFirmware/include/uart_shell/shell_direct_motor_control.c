@@ -29,7 +29,9 @@ static int cmd_speed(const struct shell *shell, size_t argc, char *argv[])
 		}
 
 		return 0;
-	} else if (argc == 2) {
+	}
+#if defined(CONFIG_SPEED_CONTROL_ENABLE)
+	else if (argc == 2) {
 		speed_mrpm = (uint32_t)strtol(argv[1], NULL, 10);
 		ret = target_speed_set(speed_mrpm, get_relevant_channel());
 
@@ -52,6 +54,7 @@ static int cmd_speed(const struct shell *shell, size_t argc, char *argv[])
 		break;
 		}
 	}
+#endif
 	return 0;
 }
 
@@ -70,7 +73,9 @@ static int cmd_position(const struct shell *shell, size_t argc, char *argv[])
 		}
 
 		return 0;
-	} else if (argc == 2) {
+	}
+#if defined(CONFIG_POS_CONTROL_ENABLE)
+	else if (argc == 2) {
 		position = (int32_t)strtol(argv[1], NULL, 10);
 		ret = target_position_set(position, get_relevant_channel());
 		switch (ret) {
@@ -90,9 +95,11 @@ static int cmd_position(const struct shell *shell, size_t argc, char *argv[])
 		break;
 		}
 	}
+#endif
 	return 0;
 }
 
+#if defined(CONFIG_POS_CONTROL_ENABLE)
 static int cmd_position_zero(const struct shell *shell, size_t argc, char *argv[])
 {
 	return_codes_t ret;
@@ -108,8 +115,7 @@ static int cmd_position_zero(const struct shell *shell, size_t argc, char *argv[
 
 	return 0;
 }
-
-
+#endif
 
 static int cmd_actual_direction(const struct shell *shell, size_t argc, char *argv[])
 {
@@ -154,16 +160,20 @@ SHELL_CMD_ARG_REGISTER(speed, NULL,
 #endif
 );
 
+#if defined(CONFIG_POS_CONTROL_ENABLE)
 SHELL_STATIC_SUBCMD_SET_CREATE(position_tree,
 SHELL_CMD(zero,       NULL, "Zero position to current position", cmd_position_zero),
 SHELL_SUBCMD_SET_END
 );
+#endif
 
-SHELL_CMD_ARG_REGISTER(pos, &position_tree,
+SHELL_CMD_ARG_REGISTER(pos,
 #if defined(CONFIG_POS_CONTROL_ENABLE)
+			&position_tree,
 			"Motor position in deca-degrees (one hundreds of degree).\n"
 			"pos to get current position.\n pos <val> to set new target position.",
 #else
+			NULL,
 			"Get motor position in deca-degrees (one hundreds of degree).",
 #endif
 			cmd_position, 1,

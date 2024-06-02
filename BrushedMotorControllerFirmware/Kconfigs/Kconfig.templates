@@ -1,5 +1,10 @@
 menu "Templates Configuration"
 
+config TEMPLATES_ENABLE
+	bool "Enable usage of template storage"
+	default y
+	depends on SPEED_CONTROL_ENABLE #TODO - Templates should be configurable and independent of SPEED/POS!
+
 config TEMPLATE_NAME_SIZE
 	int "Max size of template's name in characters"
 	default 12

@@ -2,6 +2,7 @@
 // Copyright (c) 2024 Maciej Baczmanski, Jakub Mazur
 
 #if defined(CONFIG_UART_SHELL_SUPPORT)
+#if defined(CONFIG_TEMPLATES_ENABLE)
 
 #include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>
@@ -222,4 +223,5 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_template,
 
 SHELL_CMD_REGISTER(template, &sub_template, "get/apply/create speed template", NULL);
 
+#endif
 #endif
