@@ -38,7 +38,7 @@ static int set_direction_raw(enum MotorDirection direction, enum ChannelNumber c
 #pragma endregion InternalFunctions
 
 /// CONTROL MODE - whether speed or position is controlled
-static enum ControlModes control_mode = (enum ControlModes)0; // Default to first defined control mode
+static enum ControlModes control_mode = (enum ControlModes)0;//Default to first defined control mode
 /// encoder timer - timer is common for both channels
 struct k_timer continuous_calculation_timer;
 /// driver initialized (Was init function called)?
