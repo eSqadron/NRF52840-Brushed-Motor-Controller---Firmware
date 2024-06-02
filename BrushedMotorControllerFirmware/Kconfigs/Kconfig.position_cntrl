@@ -1,38 +1,51 @@
 menu "Position Control Configuration"
 
+config POS_CONTROL_ENABLE
+	bool "Enable functions responsible for position control, like mode position, \
+	     pos set, etc.. Continuus calculation of position and pos read is always \
+	     enabled."
+	default y
+
 config KP_NUMERATOR_FOR_SPEED_IN_POS
 	int "proportional part numerator for setting speed during position control"
 	default 4
+	depends on POS_CONTROL_ENABLE
 
 config KP_DENOMINATOR_FOR_SPEED_IN_POS
 	int "proportional part denominator for setting speed during position control"
 	default 50
+	depends on POS_CONTROL_ENABLE
 
 config KP_NUMERATOR_FOR_POS
 	int "proportional part numerator for setting speed during position control"
 	default 2
+	depends on POS_CONTROL_ENABLE
 
 config KP_DENOMINATOR_FOR_POS
 	int "proportional part denominator for setting speed during position control"
 	default 1
+	depends on POS_CONTROL_ENABLE
 
 config POSITION_CONTROL_MODIFIER
 	int "Accuracy of position control (if value is 10 position is controlled in deca-degrees; \
 	     if 100 - centi-degrees etc.)"
 	default 100
+	depends on POS_CONTROL_ENABLE
 
 config POS_CONTROL_PRECISION_MODIFIER
 	int "divider for precision of position control.\
 	     Ex. 720 means that precision is 360/720 = +-0.5 degree"
 	default 720
+	depends on POS_CONTROL_ENABLE
 
 config POS_CONTROL_HISTERESIS_PERCENTAGE
 	int "Histeresis percentage of position control. For no histeresis, set to 100."
 	default 100
+	depends on POS_CONTROL_ENABLE
 
 config POS_SOFT_START
 	bool "Speed during position control will incrementally start from zero. If false,\
 	will immediately start from given speed."
 	default y
-
+	depends on POS_CONTROL_ENABLE
 endmenu
