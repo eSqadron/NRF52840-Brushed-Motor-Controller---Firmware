@@ -140,17 +140,41 @@ static int cmd_actual_direction(const struct shell *shell, size_t argc, char *ar
 }
 
 SHELL_CMD_ARG_REGISTER(speed, NULL,
-	"speed in milli RPM (one thousands of RPM)\nspeed to get speed\n speed <val> to set speed",
-	cmd_speed, 1, 1);
+#if defined(CONFIG_SPEED_CONTROL_ENABLE)
+			"Speed in milli RPM (one thousands of RPM).\n"
+			"speed to get current motor speed.\n speed <val> to set new target speed.",
+#else
+			"Get motor speed in milli RPM (one thousands of RPM).",
+#endif
+			cmd_speed, 1,
+#if defined(CONFIG_SPEED_CONTROL_ENABLE)
+			1
+#else
+			0
+#endif
+);
 
 SHELL_STATIC_SUBCMD_SET_CREATE(position_tree,
 SHELL_CMD(zero,       NULL, "Zero position to current position", cmd_position_zero),
 SHELL_SUBCMD_SET_END
 );
 
-SHELL_CMD_ARG_REGISTER(pos, &position_tree, "get/set position in deca-degree", cmd_position, 1, 1);
+SHELL_CMD_ARG_REGISTER(pos, &position_tree,
+#if defined(CONFIG_POS_CONTROL_ENABLE)
+			"Motor position in deca-degrees (one hundreds of degree).\n"
+			"pos to get current position.\n pos <val> to set new target position.",
+#else
+			"Get motor position in deca-degrees (one hundreds of degree).",
+#endif
+			cmd_position, 1,
+#if defined(CONFIG_POS_CONTROL_ENABLE)
+			1
+#else
+			0
+#endif
+);
 
-SHELL_CMD_REGISTER(actual_direction, NULL, "get motor actual spinning direction",
+SHELL_CMD_REGISTER(actual_direction, NULL, "Get motor actual spinning direction",
 		   cmd_actual_direction);
 
 #endif
