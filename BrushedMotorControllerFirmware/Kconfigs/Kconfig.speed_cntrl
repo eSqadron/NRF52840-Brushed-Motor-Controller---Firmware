@@ -6,14 +6,14 @@ config SPEED_CONTROL_ENABLE
 	     is always enabled."
 	default y
 
+if SPEED_CONTROL_ENABLE
 config KP_NUMERATOR_FOR_SPEED
 	int "proportional part numerator for speed control"
 	default 4
-	# depends on SPEED_CONTROL_ENABLE
 
 config KP_DENOMINATOR_FOR_SPEED
 	int "proportional part denominator for speed control"
 	default 10
-	# depends on SPEED_CONTROL_ENABLE
+endif
 
 endmenu

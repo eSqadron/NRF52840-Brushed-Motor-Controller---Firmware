@@ -295,6 +295,7 @@ static void continuous_calculation_timer_handler(struct k_timer *dummy)
 K_TIMER_DEFINE(continuous_calculation_timer, continuous_calculation_timer_handler, NULL);
 #pragma endregion TimerWorkCallback
 
+#if defined(CONFIG_POS_CONTROL_ENABLE)
 bool is_target_achieved(enum ChannelNumber chnl)
 {
 	uint32_t delta_shortest_path;
@@ -326,6 +327,7 @@ bool is_target_achieved(enum ChannelNumber chnl)
 
 	return false;
 }
+#endif
 
 // encoder functions
 static void enc_callback(enum ChannelNumber chnl, enum PinNumber pin)
