@@ -148,7 +148,8 @@ static int cmd_actual_direction(const struct shell *shell, size_t argc, char *ar
 SHELL_CMD_ARG_REGISTER(speed, NULL,
 #if defined(CONFIG_SPEED_CONTROL_ENABLE)
 			"Speed in milli RPM (one thousands of RPM).\n"
-			"speed to get current motor speed.\n speed <val> to set new target speed.",
+			"speed to get current motor speed.\n"
+			"speed <val> to set new target speed.",
 #else
 			"Get motor speed in milli RPM (one thousands of RPM).",
 #endif
@@ -171,7 +172,8 @@ SHELL_CMD_ARG_REGISTER(pos,
 #if defined(CONFIG_POS_CONTROL_ENABLE)
 			&position_tree,
 			"Motor position in deca-degrees (one hundreds of degree).\n"
-			"pos to get current position.\n pos <val> to set new target position.",
+			"pos to get current position.\n"
+			"pos <val> to set new target position.",
 #else
 			NULL,
 			"Get motor position in deca-degrees (one hundreds of degree).",
