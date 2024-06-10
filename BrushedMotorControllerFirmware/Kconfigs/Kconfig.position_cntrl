@@ -2,8 +2,7 @@ menu "Position Control Configuration"
 
 config POS_CONTROL_ENABLE
 	bool "Enable functions responsible for position control, like mode position, \
-	     pos set, etc.. Continuus calculation of position and pos read is always \
-	     enabled."
+	     pos set, etc."
 	default y
 
 config POSITION_CONTROL_MODIFIER
@@ -41,6 +40,7 @@ config POS_SOFT_START
 	bool "Speed during position control will incrementally start from zero. If false,\
 	will immediately start from given speed."
 	default y
+
 endif
 
 endmenu

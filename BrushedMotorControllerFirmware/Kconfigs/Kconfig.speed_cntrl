@@ -2,8 +2,7 @@ menu "Speed Control Configuration"
 
 config SPEED_CONTROL_ENABLE
 	bool "Enable functions responsible for speed control, like mode speed, \
-	     speed set, etc.. Continuus calculation of speed and speed read \
-	     is always enabled."
+	     speed set, etc."
 	default y
 
 if SPEED_CONTROL_ENABLE
