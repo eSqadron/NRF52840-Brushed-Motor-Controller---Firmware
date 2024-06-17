@@ -17,13 +17,21 @@ enum MotorDirection {
 
 /// @brief Control Mode - whether excact speed or position is controlled
 enum ControlModes {
+#if defined(CONFIG_SPEED_CONTROL_ENABLE)
 	SPEED,
+#endif
+#if defined(CONFIG_POS_CONTROL_ENABLE)
 	POSITION
+#endif
 };
 
 static const char * const mode_names[] = {
+#if defined(CONFIG_SPEED_CONTROL_ENABLE)
 	[SPEED] = "Speed",
+#endif
+#if defined(CONFIG_POS_CONTROL_ENABLE)
 	[POSITION] = "Position"
+#endif
 };
 
 /// @brief struct representing current software version
@@ -103,7 +111,9 @@ return_codes_t get_control_mode_as_string(enum ControlModes control_mode, char *
 
 return_codes_t target_position_set(int32_t new_target_position, enum ChannelNumber chnl);
 
+#if defined(CONFIG_POS_CONTROL_ENABLE)
 bool is_target_achieved(enum ChannelNumber chnl);
+#endif
 
 return_codes_t position_get(uint32_t *value, enum ChannelNumber chnl);
 

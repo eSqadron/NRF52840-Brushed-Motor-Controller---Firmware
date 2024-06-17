@@ -36,6 +36,7 @@ static int cmd_mode(const struct shell *shell, size_t argc, char *argv[])
 	return 0;
 }
 
+#if defined(CONFIG_POS_CONTROL_ENABLE)
 static int cmd_mode_pos(const struct shell *shell, size_t argc, char *argv[])
 {
 	return_codes_t ret = mode_set(POSITION);
@@ -48,7 +49,9 @@ static int cmd_mode_pos(const struct shell *shell, size_t argc, char *argv[])
 	}
 	return 0;
 }
+#endif
 
+#if defined(CONFIG_SPEED_CONTROL_ENABLE)
 static int cmd_mode_speed(const struct shell *shell, size_t argc, char *argv[])
 {
 	return_codes_t ret = mode_set(SPEED);
@@ -61,13 +64,19 @@ static int cmd_mode_speed(const struct shell *shell, size_t argc, char *argv[])
 	}
 	return 0;
 }
+#endif
 
 SHELL_STATIC_SUBCMD_SET_CREATE(mode_tree,
+#if defined(CONFIG_POS_CONTROL_ENABLE)
 SHELL_CMD(pos,        NULL, "Set mode to position control", cmd_mode_pos),
+#endif
+#if defined(CONFIG_SPEED_CONTROL_ENABLE)
 SHELL_CMD(speed,      NULL, "Set mode to speed control", cmd_mode_speed),
+#endif
 SHELL_SUBCMD_SET_END
 );
 
 SHELL_CMD_ARG_REGISTER(mode, &mode_tree, "choose mode. Default speed", cmd_mode, 1, 0);
+// TODO - change default mode based on #if defined(CONFIG_POS_CONTROL_ENABLE) etc.
 
 #endif

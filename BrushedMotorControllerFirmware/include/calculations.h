@@ -23,9 +23,10 @@ struct PID_def {
 	int32_t i_max;
 };
 
-struct PID_def PID_spd_for_pos = {
-	.Kp_numerator = CONFIG_KP_NUMERATOR_FOR_SPEED_IN_POS,
-	.Kp_denominator = CONFIG_KP_DENOMINATOR_FOR_SPEED_IN_POS,
+#if defined(CONFIG_SPEED_CONTROL_ENABLE)
+struct PID_def PID_spd = {
+	.Kp_numerator = CONFIG_KP_NUMERATOR_FOR_SPEED,
+	.Kp_denominator = CONFIG_KP_DENOMINATOR_FOR_SPEED,
 
 	.Ki_numerator = 0,
 	.Ki_denominator = 1,
@@ -39,10 +40,12 @@ struct PID_def PID_spd_for_pos = {
 	.i_min = -1000,
 	.i_max = 5000,
 };
+#endif
 
-struct PID_def PID_spd = {
-	.Kp_numerator = CONFIG_KP_NUMERATOR_FOR_SPEED,
-	.Kp_denominator = CONFIG_KP_DENOMINATOR_FOR_SPEED,
+#if defined(CONFIG_POS_CONTROL_ENABLE)
+struct PID_def PID_spd_for_pos = {
+	.Kp_numerator = CONFIG_KP_NUMERATOR_FOR_SPEED_IN_POS,
+	.Kp_denominator = CONFIG_KP_DENOMINATOR_FOR_SPEED_IN_POS,
 
 	.Ki_numerator = 0,
 	.Ki_denominator = 1,
@@ -73,6 +76,7 @@ struct PID_def PID_pos = {
 	.i_min = -500,
 	.i_max = 500,
 };
+#endif
 
 static inline int32_t calculate_pid_from_error(int32_t error, struct PID_def *pid)
 {

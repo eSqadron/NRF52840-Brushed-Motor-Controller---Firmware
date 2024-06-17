@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2024 Maciej Baczmanski, Jakub Mazur
+#if defined(CONFIG_TEMPLATES_ENABLE)
 
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
@@ -322,3 +323,4 @@ return_codes_t factory_reset(void)
 
 	return SUCCESS;
 }
+#endif

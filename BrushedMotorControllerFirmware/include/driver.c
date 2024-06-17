@@ -38,7 +38,7 @@ static int set_direction_raw(enum MotorDirection direction, enum ChannelNumber c
 #pragma endregion InternalFunctions
 
 /// CONTROL MODE - whether speed or position is controlled
-static enum ControlModes control_mode = SPEED;
+static enum ControlModes control_mode;
 /// encoder timer - timer is common for both channels
 struct k_timer continuous_calculation_timer;
 /// driver initialized (Was init function called)?
@@ -170,8 +170,8 @@ static void update_speed_and_position_continuous(struct k_work *work)
 
 		// if motor is on, calculate control value
 		if (get_motor_off_on(chnl)) {
+#if defined(CONFIG_SPEED_CONTROL_ENABLE)
 			int ret;
-
 			if (control_mode == SPEED) {
 				// increase or decrese speed each iteration by Kp * speed_delta
 				drv_chnls[chnl].speed_control =
@@ -193,7 +193,10 @@ static void update_speed_and_position_continuous(struct k_work *work)
 				}
 
 				ret = speed_pwm_set(drv_chnls[chnl].speed_control, chnl);
-			} else if (control_mode == POSITION) {
+			}
+#endif
+#if defined(CONFIG_POS_CONTROL_ENABLE)
+			if (control_mode == POSITION) {
 				bool is_target_behind = false;
 				uint32_t delta_shortest_path = 0;
 
@@ -280,6 +283,7 @@ static void update_speed_and_position_continuous(struct k_work *work)
 				ret_debug =
 					speed_pwm_set(drv_chnls[chnl].target_speed_mrpm, chnl);
 			}
+#endif
 		}
 	}
 }
@@ -291,6 +295,7 @@ static void continuous_calculation_timer_handler(struct k_timer *dummy)
 K_TIMER_DEFINE(continuous_calculation_timer, continuous_calculation_timer_handler, NULL);
 #pragma endregion TimerWorkCallback
 
+#if defined(CONFIG_POS_CONTROL_ENABLE)
 bool is_target_achieved(enum ChannelNumber chnl)
 {
 	uint32_t delta_shortest_path;
@@ -322,6 +327,7 @@ bool is_target_achieved(enum ChannelNumber chnl)
 
 	return false;
 }
+#endif
 
 // encoder functions
 static void enc_callback(enum ChannelNumber chnl, enum PinNumber pin)
@@ -552,6 +558,7 @@ static int speed_pwm_set(uint32_t value, enum ChannelNumber chnl)
 
 	return SUCCESS;
 }
+#if defined(CONFIG_SPEED_CONTROL_ENABLE)
 return_codes_t target_speed_set(uint32_t value, enum ChannelNumber chnl)
 {
 	if (control_mode != SPEED) {
@@ -564,6 +571,7 @@ return_codes_t target_speed_set(uint32_t value, enum ChannelNumber chnl)
 
 	return SUCCESS;
 }
+#endif
 return_codes_t speed_get(enum ChannelNumber chnl, uint32_t *value)
 {
 	if (drv_initialised) {
@@ -582,6 +590,7 @@ uint32_t get_current_max_speed(void)
 	return CONFIG_SPEED_MAX_MRPM;
 }
 
+#if defined(CONFIG_POS_CONTROL_ENABLE)
 return_codes_t target_position_set(int32_t new_target_position, enum ChannelNumber chnl)
 {
 	if (!drv_initialised) {
@@ -602,6 +611,8 @@ return_codes_t target_position_set(int32_t new_target_position, enum ChannelNumb
 
 	return SUCCESS;
 }
+#endif
+
 return_codes_t position_get(uint32_t *value, enum ChannelNumber chnl)
 {
 	if (!drv_initialised) {
@@ -637,6 +648,7 @@ return_codes_t mode_get(enum ControlModes *value)
 	return SUCCESS;
 }
 
+#if defined(CONFIG_POS_CONTROL_ENABLE)
 return_codes_t position_reset_zero(enum ChannelNumber chnl)
 {
 	if (!drv_initialised) {
@@ -656,6 +668,7 @@ return_codes_t position_reset_zero(enum ChannelNumber chnl)
 
 	return SUCCESS;
 }
+#endif
 
 #pragma region DebugFunctions
 uint64_t get_cycles_count_DEBUG(void)

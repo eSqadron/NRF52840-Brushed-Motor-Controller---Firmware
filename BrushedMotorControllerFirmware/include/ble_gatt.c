@@ -29,6 +29,8 @@
 
 //TODO - implement paging for more than 15 templates in the future
 
+#if defined(CONFIG_TEMPLATES_ENABLE)
+
 static ssize_t read_ble_template_list(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 			 void *buf, uint16_t len, uint16_t offset)
 {
@@ -61,6 +63,7 @@ static ssize_t read_ble_template_active(struct bt_conn *conn, const struct bt_ga
 	return bt_gatt_attr_read(conn, attr, buf, len, offset, &current,
 				 sizeof(current));
 }
+#endif
 
 static ssize_t read_ble_speed(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 			 void *buf, uint16_t len, uint16_t offset)
@@ -95,8 +98,10 @@ static ssize_t write_ble(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 			 const void *buf, uint16_t len, uint16_t offset, uint8_t flag)
 {
 	uint8_t *data = (uint8_t *)buf;
+#if defined(CONFIG_TEMPLATES_ENABLE)
 	struct Template template;
 	char *name;
+#endif
 
 	switch (data[0]) {
 #if defined(CONFIG_BOARD_NRF52840DONGLE_NRF52840)
@@ -104,9 +109,12 @@ static ssize_t write_ble(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 		enter_boot();
 	break;
 #endif
+#if defined(CONFIG_SPEED_CONTROL_ENABLE)
 	case 1: // set raw speed
 		(void)target_speed_set(convertToUint32(data+1U), CH0);
 	break;
+#endif
+#if defined(CONFIG_TEMPLATES_ENABLE)
 	case 2: // add template
 		name = (char *)(data + 1U);
 		strcpy(template.name, name);
@@ -135,6 +143,7 @@ static ssize_t write_ble(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 		}
 		set_current_template(template.name);
 	break;
+#endif
 	}
 	memset(data, 0, len * (sizeof(data[0])));
 	return len;
@@ -143,12 +152,14 @@ static ssize_t write_ble(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 
 BT_GATT_SERVICE_DEFINE(hrs_svc,
 	BT_GATT_PRIMARY_SERVICE(BT_UUID_DECLARE_128(SERVICE_UUID)),
+#if defined(CONFIG_TEMPLATES_ENABLE)
 	BT_GATT_CHARACTERISTIC(RX_CHAR_UUID_TEMPL_LIST, BT_GATT_CHRC_READ,
 			       BT_GATT_PERM_READ,
 			       read_ble_template_list, NULL, NULL),
 	BT_GATT_CHARACTERISTIC(RX_CHAR_UUID_TEMPL_ACTIVE, BT_GATT_CHRC_READ,
 			       BT_GATT_PERM_READ,
 			       read_ble_template_active, NULL, NULL),
+#endif
 	BT_GATT_CHARACTERISTIC(RX_CHAR_UUID_SPEED, BT_GATT_CHRC_READ,
 			       BT_GATT_PERM_READ,
 			       read_ble_speed, NULL, NULL),

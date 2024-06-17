@@ -20,16 +20,18 @@
 
 int main(void)
 {
+	init_pwm_motor_driver();
+#if defined(CONFIG_TEMPLATES_ENABLE)
 	struct Template initial_template;
 	return_codes_t error = SUCCESS;
 
-	init_pwm_motor_driver();
 	init_storage();
 	error = get_current_template(&initial_template);
 
 	if (error == SUCCESS) {// TODO - test it, currently broken by init controller.
 		target_speed_set(initial_template.speed, CH0);
 	}
+#endif
 
 	#if defined(CONFIG_BT_SUPPORT)
 	init_bt();

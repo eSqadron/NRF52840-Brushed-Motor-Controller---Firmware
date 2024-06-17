@@ -1,5 +1,11 @@
 menu "Speed Control Configuration"
 
+config SPEED_CONTROL_ENABLE
+	bool "Enable functions responsible for speed control, like mode speed, \
+	     speed set, etc."
+	default y
+
+if SPEED_CONTROL_ENABLE
 config KP_NUMERATOR_FOR_SPEED
 	int "proportional part numerator for speed control"
 	default 4
@@ -7,5 +13,6 @@ config KP_NUMERATOR_FOR_SPEED
 config KP_DENOMINATOR_FOR_SPEED
 	int "proportional part denominator for speed control"
 	default 10
+endif
 
 endmenu
