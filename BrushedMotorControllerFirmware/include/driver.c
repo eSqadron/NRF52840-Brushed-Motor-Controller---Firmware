@@ -21,7 +21,7 @@
 
 static const struct DriverVersion driver_ver = {
 	.major = 2,
-	.minor = 2,
+	.minor = 5,
 };
 
 /// temporary debug only variables: - To be deleted after developemnt is finished!
