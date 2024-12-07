@@ -263,21 +263,21 @@ return_codes_t remove_template_by_name(char *name)
 
 			error_errno = nvs_read(&fs, alloc_size + TEMPLATES_START_ID - 1,
 						   &last, sizeof(struct Template));
-			if (ret < 0) {
+			if (error_errno < 0) {
 				handle_errno_error(error_errno, __LINE__);
 				return ERR_ERROR_CODE_FROM_ERRNO;
 			}
-			if (ret == 0) {
+			if (error_errno == 0) {
 				return ERR_NOTHING_READ_DURING_NVS_READ;
 			}
 
 			error_errno = nvs_write(&fs, idx + TEMPLATES_START_ID,
 							&last, sizeof(struct Template));
-			if (ret < 0) {
+			if (error_errno < 0) {
 				handle_errno_error(error_errno, __LINE__);
 				return ERR_ERROR_CODE_FROM_ERRNO;
 			}
-			if (ret == 0) {
+			if (error_errno == 0) {
 				return ERR_NOTHING_WRITTEN_DURING_NVS_WRITE;
 			}
 		}
